@@ -333,6 +333,18 @@ const SCHEMA = [
     { k: 'hueAmt', label: 'Colour cycle', min: 0, max: 1, step: 0.01, def: 0 },
     { k: 'hueSpread', label: 'Colour cycle spread', min: 0, max: 2, step: 0.05, def: 0.6 },
   ]},
+  { id: 'fx3', title: 'Even more effects', tex: true, help: 'Particles, circuitry, water, fractals and HUD readouts. Mix freely with everything else.', items: [
+    { k: 'embersAmt', label: 'Embers / fireflies', min: 0, max: 1.2, step: 0.01, def: 0 },
+    { k: 'dropsAmt', label: 'Rain on the glass', min: 0, max: 1.2, step: 0.01, def: 0 },
+    { k: 'helixAmt', label: 'DNA helix', min: 0, max: 1.2, step: 0.01, def: 0 },
+    { k: 'circuitAmt', label: 'Circuit board', min: 0, max: 1.2, step: 0.01, def: 0 },
+    { k: 'impactAmt', label: 'Impact shockwaves', min: 0, max: 1.2, step: 0.01, def: 0 },
+    { k: 'zapAmt', label: 'Edge crackle', min: 0, max: 1.2, step: 0.01, def: 0 },
+    { k: 'causticAmt', label: 'Underwater caustics', min: 0, max: 1.2, step: 0.01, def: 0 },
+    { k: 'moireAmt', label: 'Op-art moiré', min: 0, max: 1.2, step: 0.01, def: 0 },
+    { k: 'fractalAmt', label: 'Fractal (Julia set)', min: 0, max: 1.2, step: 0.01, def: 0 },
+    { k: 'countAmt', label: 'Countdown digits', min: 0, max: 1.2, step: 0.01, def: 0 },
+  ]},
   { id: 'fx2', title: 'More effects', tex: true, help: 'Whole-visor looks. Most use the glow colour; aurora and the synthwave sky also use the second colour (Look tab).', items: [
     { k: 'kaleidoAmt', label: 'Kaleidoscope', min: 0, max: 1.2, step: 0.01, def: 0 },
     { k: 'kaleidoFold', label: 'Kaleidoscope mirrors', min: 3, max: 12, step: 1, def: 8 },
@@ -399,7 +411,7 @@ const SCHEMA = [
 ];
 const TEX_KEYS = SCHEMA.filter(g => g.tex).flatMap(g => g.items.map(i => i.k));
 const FX_KEYS = SCHEMA.filter(g => g.id.startsWith('fx')).flatMap(g => g.items.map(i => i.k));
-const PANE_OF_TAB = { look: 'look', lines: 'look', glint: 'look', bars: 'effects', patterns: 'effects', glitch: 'effects', fx: 'effects', fx2: 'effects' };
+const PANE_OF_TAB = { look: 'look', lines: 'look', glint: 'look', bars: 'effects', patterns: 'effects', glitch: 'effects', fx: 'effects', fx2: 'effects', fx3: 'effects' };
 const texChangedOf = p => TEX_KEYS.some(k => String(p[k]) !== String(DEFAULTS[k])) || p.exQuality !== DEFAULTS.exQuality;
 // "Download outfit" uploads a changed visor texture to the STARWARSRP uploads branch (upload-worker/) and links it,
 // so nobody has to host anything. Empty = upload service not set up: host the .vtf by hand as before.
@@ -450,6 +462,20 @@ const PRESETS = {
   'Comms Equalizer': { eqAmt: 0.85, eqBars: 22, base: 0.08, lineAmt: 0, interf: 0, coreAmt: 0, haloAmt: 0, trailAmt: 0 },
   'Spectrum (event only)': { hueAmt: 1, hueSpread: 0.6, plasmaAmt: 0.35, plasmaScale: 55, base: 0.22, lineAmt: 0.08 },
   'Overload': { arcAmt: 0.7, arcRate: 0.6, plasmaAmt: 0.4, glitchAmt: 0.35, flickerAmt: 0.3, base: 0.2, coreAmt: 0.3 },
+  'Ember Storm': { embersAmt: 1, fireAmt: 0.35, fireHeight: 0.45, base: 0.06, lineAmt: 0, interf: 0, coreAmt: 0, haloAmt: 0, trailAmt: 0, topShade: 0 },
+  'Firefly Night': { embersAmt: 0.85, starsAmt: 0.35, base: 0.03, rimAmt: 0.08, lineAmt: 0, interf: 0, coreAmt: 0, haloAmt: 0, trailAmt: 0, reflAmt: 0.25 },
+  'Rain on Glass': { dropsAmt: 1, base: 0.12, reflAmt: 0.9, lineAmt: 0, interf: 0, coreAmt: 0.15, haloAmt: 0.06, trailAmt: 0, topShade: 0.35 },
+  'Genome': { helixAmt: 1, base: 0.06, lineAmt: 0.08, lineSharp: 0.6, interf: 0, coreAmt: 0, haloAmt: 0, trailAmt: 0 },
+  'Circuit Board': { circuitAmt: 0.9, base: 0.05, lineAmt: 0, interf: 0, coreAmt: 0, haloAmt: 0, trailAmt: 0, edgeAmt: 0.45 },
+  'Impact Sonar': { impactAmt: 1, base: 0.1, lineAmt: 0.06, coreAmt: 0, haloAmt: 0, trailAmt: 0 },
+  'Ion Charge': { zapAmt: 1, arcAmt: 0.35, arcRate: 0.25, base: 0.14, edgeAmt: 0.6, lineAmt: 0, coreAmt: 0, haloAmt: 0, trailAmt: 0 },
+  'Underwater': { causticAmt: 0.85, color2: '#16203A', gradAmt: 0.5, base: 0.08, lineAmt: 0, interf: 0, coreAmt: 0, haloAmt: 0, trailAmt: 0 },
+  'Op Art': { moireAmt: 0.9, base: 0.04, lineAmt: 0, interf: 0, coreAmt: 0, haloAmt: 0, trailAmt: 0, reflAmt: 0.2 },
+  'Julia Set': { fractalAmt: 0.95, base: 0.04, lineAmt: 0, interf: 0, coreAmt: 0, haloAmt: 0, trailAmt: 0 },
+  'Countdown': { countAmt: 1, scanBarAmt: 0.2, scanBarPasses: 2, lineAmt: 0.2, lineSharp: 0.6, base: 0.12, coreAmt: 0 },
+  'Detonator': { countAmt: 1, impactAmt: 0.7, flickerAmt: 0.3, glitchAmt: 0.2, base: 0.12, coreAmt: 0 },
+  'Holo Projector': { lineAmt: 0.55, lineSharp: 0.8, lineSpacing: 1.1, lineScroll: 5, zapAmt: 0.4, glitchAmt: 0.25, flickerAmt: 0.2, interf: 0.25, base: 0.28, coreAmt: 0.2 },
+  'Overclocked Circuit': { circuitAmt: 0.8, zapAmt: 0.6, plasmaAmt: 0.25, base: 0.06, coreAmt: 0.3, haloAmt: 0.1 },
   'Mandala': { kaleidoAmt: 0.85, kaleidoFold: 8, base: 0.1, lineAmt: 0, interf: 0, coreAmt: 0, haloAmt: 0, trailAmt: 0 },
   'Starlight': { starsAmt: 1, base: 0.05, rimAmt: 0.15, lineAmt: 0, interf: 0, coreAmt: 0, haloAmt: 0, trailAmt: 0, reflAmt: 0.25, edgeAmt: 0.3 },
   'Vital Signs': { ecgAmt: 1, ecgBeats: 2, base: 0.07, lineAmt: 0.12, lineSharp: 0.6, lineSpacing: 2.5, coreAmt: 0, haloAmt: 0, trailAmt: 0, interf: 0 },
@@ -600,8 +626,12 @@ function makeShader(p, D) {
   const rmax = Math.hypot(W * 0.5 * ASPECT, H * 0.5);
   const BASE = [0, 0, 0];
   // top and bottom of the glass in each texture column, so flames and bars rise from the bottom edge of every part
-  const colTop = new Float32Array(D.W).fill(1e9), colBot = new Float32Array(D.W).fill(-1);
-  for (let yy = 0; yy < D.H; yy++) for (let xx = 0; xx < D.W; xx++) if (D.mask[yy * D.W + xx] > 0.5) { colTop[xx] = Math.min(colTop[xx], yy); colBot[xx] = Math.max(colBot[xx], yy); }
+  if (!D.colTop) {
+    D.colTop = new Float32Array(D.W).fill(1e9); D.colBot = new Float32Array(D.W).fill(-1);
+    for (let yy = 0; yy < D.H; yy++) for (let xx = 0; xx < D.W; xx++) if (D.mask[yy * D.W + xx] > 0.5) { D.colTop[xx] = Math.min(D.colTop[xx], yy); D.colBot[xx] = Math.max(D.colBot[xx], yy); }
+  }
+  const colTop = D.colTop, colBot = D.colBot;
+  const part = {};   // per-frame particle positions (embers, raindrops), recomputed when the frame changes
   return function (i, yt, t, out) {
     const m = D.mask[i]; if (m <= 0) { out[0] = out[1] = out[2] = 0; return; }
     const xt = i - yt * D.W, x = xt * sx, y = yt * sy, un = D.un[i], vn = D.vn[i], f = Math.round(t * FX) % FX;
@@ -810,6 +840,98 @@ function makeShader(p, D) {
       const v = 0.5 + 0.5 * Math.cos(Math.round(p.vortexArms) * a + 22 * Math.log(r) * 0.35 - TAU * t * 2);
       fx += p.vortexAmt * v * v * clamp(r / 25, 0.3, 1); fxHot += p.vortexAmt * Math.exp(-r / 10) * 1.2;
     }
+    if (p.embersAmt > 0) {   // embers drifting up, swaying, flaring and fading (positions worked out once per frame)
+      if (part.et !== t) {
+        part.et = t; part.emb = [];
+        for (let n = 0; n < 48; n++) {
+          const s = 1 + Math.floor(h1(n * 7.7) * 2), life = fract(t * s + h1(n * 2.3)), r = 1.2 + 2.2 * h1(n * 5.5);
+          part.emb.push([h1(n * 3.1) * W + 9 * Math.sin(TAU * (t * s * 2 + h1(n * 5.1))), H * (1.1 - life * 1.25), r * r, Math.sin(Math.PI * life)]);
+        }
+      }
+      for (const [ex, ey, r2, b] of part.emb) {
+        const dx = x - ex, dy = y - ey; if (dx > 20 || dx < -20 || dy > 20 || dy < -20) continue;
+        const dd = dx * dx + dy * dy;
+        fxHot += p.embersAmt * b * Math.exp(-dd / r2); fx += p.embersAmt * 0.5 * b * Math.exp(-dd / (16 * r2));
+      }
+    }
+    if (p.dropsAmt > 0) {   // raindrops running down the glass with wet trails, plus small beads that sit still
+      if (part.dt !== t) {
+        part.dt = t; part.drp = [];
+        for (let n = 0; n < 22; n++) { const s = 1 + Math.floor(h1(n * 4.9) * 3); part.drp.push([h1(n * 8.3) * W, (fract(t * s + h1(n * 1.7)) * 1.4 - 0.2) * H, n]); }
+      }
+      for (const [dx0, hy, n] of part.drp) {
+        const above = hy - y; if (above < -4 || above > 60) continue;
+        const dx = x - (dx0 + 4 * Math.sin(y / 9 + n)); if (Math.abs(dx) > 6) continue;
+        fxHot += p.dropsAmt * 1.4 * Math.exp(-(dx * dx + above * above) / 11);
+        if (above > 0) fx += p.dropsAmt * 0.9 * Math.exp(-dx * dx / 4) * (1 - above / 60);
+      }
+      const bx = Math.floor(x / 7), by = Math.floor(y / 7), bh = hash2(bx, by);
+      if (bh > 0.82) fxHot += p.dropsAmt * 0.6 * Math.exp(-((x - (bx + 0.15 + 0.7 * hash2(bx + 3.1, by)) * 7) ** 2 + (y - (by + 0.15 + 0.7 * hash2(bx, by + 5.3)) * 7) ** 2) / (1.5 + 3 * (bh - 0.82)));
+    }
+    if (p.helixAmt > 0) {   // two strands twisting round each other with rungs, scrolling across the visor
+      const ph = TAU * (un * 2 - t * 2), amp = 0.17 * H, ya = G.wingY + amp * Math.sin(ph), yb = G.wingY - amp * Math.sin(ph);
+      const fa = 0.55 + 0.45 * Math.cos(ph), fb = 0.55 - 0.45 * Math.cos(ph);   // strand in front is brighter
+      fxHot += p.helixAmt * (fa * Math.exp(-(((y - ya) / 2.2) ** 2)) + fb * Math.exp(-(((y - yb) / 2.2) ** 2)));
+      const rung = Math.abs(fract((un * 2 - t * 2) * 10) - 0.5) < 0.06, lo = Math.min(ya, yb), hi = Math.max(ya, yb);
+      if (rung && y > lo && y < hi) fx += p.helixAmt * 0.8;
+    }
+    if (p.circuitAmt > 0) {   // circuit traces with pulses of light racing along them
+      const cs = 16, cx = Math.floor(x / cs), cy = Math.floor(y / cs), lx = x - cx * cs - cs / 2, ly = y - cy * cs - cs / 2;
+      const hz = hash2(cx, cy * 3.3) > 0.42, vt = hash2(cx * 1.7, cy) > 0.58;
+      let tr = 0, pulse = 0;
+      if (hz && Math.abs(ly) < 1.1) { tr = 1; const q = fract(x / W * 2 - t * (1 + Math.floor(hash2(cy, 4) * 2)) + hash2(cy, 9)); pulse = Math.exp(-(((q - 0.5) / 0.035) ** 2)); }
+      if (vt && Math.abs(lx) < 1.1) { tr = 1; const q = fract(y / H * 2 - t * (1 + Math.floor(hash2(cx, 6) * 2)) + hash2(cx, 2)); pulse = Math.max(pulse, Math.exp(-(((q - 0.5) / 0.05) ** 2))); }
+      const via = (hz || vt) && Math.hypot(lx, ly) < 2.6 && hash2(cx + 9, cy) > 0.5;
+      fx += p.circuitAmt * (0.35 * tr + (via ? 0.6 : 0)); fxHot += p.circuitAmt * (pulse * tr + (via ? 0.3 * (0.5 + 0.5 * Math.sin(TAU * (t * 3 + hash2(cx, cy)))) : 0));
+    }
+    if (p.impactAmt > 0) {   // shockwave rings bursting from random spots through the loop
+      for (let n = 0; n < 6; n++) {
+        const age = fract(t - n / 6), life = 0.4;
+        if (age > life) continue;
+        const ix = (0.12 + 0.76 * h1(n * 9.7)) * W, iy = (DATA.vtop + (DATA.vbot - DATA.vtop) * (0.25 + 0.4 * h1(n * 3.9))) * H;
+        const dd = Math.hypot((x - ix) * ASPECT, y - iy), r = age / life * 110, fade = 1 - age / life;
+        fxHot += p.impactAmt * fade * Math.exp(-(((dd - r) / 2.2) ** 2)); fx += p.impactAmt * fade * fade * 0.5 * Math.exp(-dd / 14);
+      }
+    }
+    if (p.zapAmt > 0) {   // electric crackle crawling along the edge of the glass, different every frame
+      const n1 = vnoise(x / 3.5 + f * 13.1, y / 3.5 + f * 7.7), spark = n1 > 0.55 ? (n1 - 0.55) / 0.45 : 0, e2 = Math.min(1, D.edge[i] * 1.8 + D.rim[i] * 0.6);
+      fxHot += p.zapAmt * e2 * spark * 3.2; fx += p.zapAmt * e2 * 0.7 * (0.6 + 0.4 * Math.sin(TAU * t * 6));
+    }
+    if (p.causticAmt > 0) {   // underwater caustics: bright wobbling light lines
+      const a = TAU * t, u1 = x / 13 + 2 * Math.sin(y / 17 + a), v1 = y / 11 + 2 * Math.sin(x / 19 - a);
+      const v = Math.pow(1 - Math.abs(Math.sin(u1) * Math.sin(v1)), 10) + 0.6 * Math.pow(1 - Math.abs(Math.sin(u1 * 0.6 + 1.3) * Math.sin(v1 * 0.7 - 2.1)), 14);
+      fx += p.causticAmt * (0.25 + 0.6 * v); fxHot += p.causticAmt * 0.5 * Math.pow(v, 3);
+    }
+    if (p.moireAmt > 0) {   // op-art: two sets of rings orbiting each other and interfering
+      const a = TAU * t, c1x = G.cx + 70 * Math.cos(a), c2x = G.cx - 70 * Math.cos(a), cyy = G.cy + 12 * Math.sin(a * 2);
+      const r1 = Math.hypot((x - c1x) * ASPECT, y - cyy), r2 = Math.hypot((x - c2x) * ASPECT, y - cyy);
+      const v = 0.5 + 0.5 * Math.cos(r1 / 2.8) * Math.cos(r2 / 2.8);
+      fx += p.moireAmt * v * v;
+    }
+    if (p.fractalAmt > 0) {   // Julia set whose shape morphs round a loop
+      let zx = (x - G.cx) * ASPECT / 95, zy = (y - G.cy) / 95, n = 0;
+      const cr = 0.7885 * Math.cos(TAU * t), ci = 0.7885 * Math.sin(TAU * t);
+      for (; n < 32 && zx * zx + zy * zy < 16; n++) { const nx = zx * zx - zy * zy + cr; zy = 2 * zx * zy + ci; zx = nx; }
+      if (n >= 32) fxHot += p.fractalAmt * 0.9;   // inside the set
+      else {   // outside: smooth escape bands that ripple outwards across the whole visor
+        const sv = n + 1 - Math.log2(Math.log(Math.hypot(zx, zy))), band = 0.5 + 0.5 * Math.cos(sv * 0.9 - TAU * t * 2);
+        fx += p.fractalAmt * (0.3 + 0.7 * band) * clamp(sv / 4, 0.35, 1); fxHot += p.fractalAmt * Math.pow(clamp(sv / 32, 0, 1), 2);
+      }
+    }
+    if (p.countAmt > 0) {   // seven-segment countdown from 99 to 00 on the right of the visor
+      const val = Math.min(99, Math.floor((1 - t) * 100)), DH = 34, DW = 17, th = 3.2, cyy = G.wingY;
+      const SEG = [0x3F, 0x06, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x6F];
+      for (let dgt = 0; dgt < 2; dgt++) {
+        const ox = W * 0.74 + dgt * (DW + 9), lx = (x - ox) * ASPECT * 0.75, ly = y - (cyy - DH / 2);
+        if (lx < -th || lx > DW + th || ly < -th || ly > DH + th) continue;
+        const bits = SEG[dgt ? val % 10 : Math.floor(val / 10)], hh = DH / 2;
+        const segs = [[0, 0, DW, 0], [DW, 0, DW, hh], [DW, hh, DW, DH], [0, DH, DW, DH], [0, hh, 0, DH], [0, 0, 0, hh], [0, hh, DW, hh]];
+        segs.forEach(([x0, y0, x1, y1], k) => {
+          const on = (bits >> k) & 1, d = x0 === x1 ? (ly > y0 + 1 && ly < y1 - 1 ? Math.abs(lx - x0) : 99) : (lx > x0 + 1 && lx < x1 - 1 ? Math.abs(ly - y0) : 99);
+          if (d < th) { if (on) { fxHot += p.countAmt * 0.9; fx += p.countAmt * 0.4; } else fx += p.countAmt * 0.06; }
+        });
+      }
+    }
     if (p.hueAmt > 0) { const hb = hueRotate(BASE, TAU * p.hueAmt * fract(t + un * p.hueSpread)); BASE[0] = hb[0]; BASE[1] = hb[1]; BASE[2] = hb[2]; }
     // reflection
     const d = D.diag[i];
@@ -871,8 +993,12 @@ function tick() {
 
   const key = TEX_KEYS.map(k => P[k]).join('|') + '|' + P.exQuality;
   if (key !== shaderKey) { shader = makeShader(P); shaderKey = key; }
-  drawGL(t, factor, P.rimOn ? rc : [0, 0, 0], key);
-  if (now - (tick.lastThumb || 0) > 0.07) { tick.lastThumb = now; drawThumbs(time); }
+  const g0 = performance.now(); drawGL(t, factor, P.rimOn ? rc : [0, 0, 0], key);
+  const gms = performance.now() - g0; STATS.viewMs = STATS.viewMs * 0.9 + gms * 0.1; STATS.viewMax = Math.max(STATS.viewMax * 0.995, gms);
+  if (now - (tick.lastThumb || 0) > 0.07) {
+    tick.lastThumb = now; const t0 = performance.now(); drawThumbs(time);
+    const ms = performance.now() - t0; STATS.thumbMs = STATS.thumbMs * 0.9 + ms * 0.1; STATS.thumbMax = Math.max(STATS.thumbMax * 0.995, ms);   // window.__visor.stats
+  }
   if (!loadError) document.getElementById('badge').textContent = !S.alive ? 'KILLED' : (S.tSince * P.bootSpeed < 2.2 && P.powerOn) ? 'BOOTING' :
     [S.talk && 'TALKING', S.type && 'TYPING', S.dark && 'DARK AREA'].filter(Boolean).join(' + ') || 'IDLE';
   requestAnimationFrame(tick);
@@ -969,13 +1095,26 @@ function drawGL(t, factor, rimTint, key) {
   const cv = gl.canvas, dpr = Math.min(2, window.devicePixelRatio || 1), w = Math.round(cv.clientWidth * dpr), h = Math.round(cv.clientHeight * dpr);
   if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
   gl.viewport(0, 0, w, h);
-  // rebuild the visor texture only when its frame or settings change
-  const dk = key + '|' + t;
-  if (dk !== GLS.dk) {
-    GLS.dk = dk; const o = GLS.detImg.data, c3 = new Float32Array(3);
-    for (const i of GLS.ml) { shader(i, (i / W) | 0, t, c3); o[i * 4] = c3[0] * 255; o[i * 4 + 1] = c3[1] * 255; o[i * 4 + 2] = c3[2] * 255; }
+  // visor frames: each is computed once per look, a few milliseconds per screen refresh so heavy effects never freeze
+  // the page (the last finished frame stays up meanwhile), then replayed
+  if (GLS.ck !== key) { GLS.ck = key; GLS.frames = new Map(); GLS.work = null; }
+  let col = GLS.frames.get(t);
+  if (!col) {
+    const ml = GLS.ml, w = GLS.work || (GLS.work = { t, j: 0, col: new Uint8ClampedArray(ml.length * 3) }), c3 = PX3, until = performance.now() + 8;
+    for (; w.j < ml.length; w.j++) {
+      if ((w.j & 511) === 0 && performance.now() > until) break;
+      const i = ml[w.j]; shader(i, (i / W) | 0, w.t, c3);
+      w.col[w.j * 3] = c3[0] * 255; w.col[w.j * 3 + 1] = c3[1] * 255; w.col[w.j * 3 + 2] = c3[2] * 255;
+    }
+    if (w.j >= ml.length) { GLS.frames.set(w.t, w.col); GLS.work = null; }
+    col = GLS.frames.get(t) || (w.j >= ml.length ? w.col : null);
+  }
+  if (col && col !== GLS.shown) {
+    const o = GLS.detImg.data, ml = GLS.ml;
+    for (let j = 0; j < ml.length; j++) { const i = ml[j] * 4; o[i] = col[j * 3]; o[i + 1] = col[j * 3 + 1]; o[i + 2] = col[j * 3 + 2]; }
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, GLS.det);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, GLS.detImg);
+    GLS.shown = col;
   }
   const c = GLS.cam, cp = Math.cos(c.pitch);
   const eye = [c.dist * cp * Math.sin(c.yaw), -c.dist * cp * Math.cos(c.yaw), c.dist * Math.sin(c.pitch)];   // helmet faces -Y, up is +Z
@@ -992,19 +1131,42 @@ function drawGL(t, factor, rimTint, key) {
 
 // ---------------------------------------------------------------- preset gallery
 let activePreset = null, thumbs = [];
+const STATS = { thumbMs: 0, thumbMax: 0, viewMs: 0, viewMax: 0 };
 function applyPreset(name) {
   Object.assign(P, DEFAULTS, keepFiles(), PRESETS[name]); activePreset = name; save(); refresh();
   const tex = Object.keys(PRESETS[name]).some(k => TEX_KEYS.includes(k));
   flash(tex ? `${name}: new look — export the .vtf and host it to use it in-game.` : `${name}: outfit-only preset, just download the outfit.`);
 }
+// preset previews: each preset's visor colours are computed once per animation frame and replayed after that
+// (breathing and rim glow are cheap and applied live); only tiles on screen are drawn, and new frames are computed
+// a few milliseconds at a time so the page never stalls
+const thumbSeen = new IntersectionObserver(es => { for (const e of es) e.target._onScreen = e.isIntersecting; });
+const PX3 = new Float32Array(3);
+function thumbWork(th, until) {   // carry on building th.work's frame until the time is up; true when it's finished
+  const T = G.thumb, w = th.work;
+  for (; w.j < T.vis.length; w.j += 3) {
+    if (w.j % 600 === 0 && performance.now() > until) return false;
+    th.sh(T.vis[w.j + 2] * W + T.vis[w.j + 1], T.vis[w.j + 2], w.fi / w.fx, PX3);
+    w.col[w.j] = PX3[0] * 255; w.col[w.j + 1] = PX3[1] * 255; w.col[w.j + 2] = PX3[2] * 255;
+  }
+  th.frames[w.fi] = w.col; th.work = null; return true;
+}
 function drawThumbs(time) {
-  const T = G.thumb, A = G.alb, px3 = new Float32Array(3);
   if (!document.querySelector('.pane[data-pane="presets"]').classList.contains('on')) return;
+  const T = G.thumb, A = G.alb, until = performance.now() + 6;
   for (const th of thumbs) {
-    if (th.tile.classList.contains('hide')) continue;
-    const q = th.P, img = th.img, o = img.data;
+    if (!th.tile._onScreen || th.tile.classList.contains('hide')) continue;
+    const q = th.P, fx = qual(q).frames, fi = (Math.floor(time * q.fps * fx / 48) % fx) & ~1;   // every other frame is plenty at this size
+    th.frames = th.frames || [];
+    if (!th.frames[fi]) {   // build it in slices; meanwhile show the last frame we have
+      if (!th.work) th.work = { fi, fx, j: 0, col: new Uint8ClampedArray(G.thumb.VL || (G.thumb.VL = G.thumb.vis.length)) };
+      if (performance.now() < until) thumbWork(th, until);
+    }
+    const col = th.frames[fi] || th.last;
+    if (!col) continue;
+    th.last = col;
+    const img = th.img, o = img.data;
     o.set(T.base);
-    const fx = qual(q).frames, t = (Math.floor(time * q.fps * fx / 48) % fx) / fx;
     if (q.rimOn) {
       const rf = 0.9 + 0.1 * Math.sin(time * q.bs), rc = hex2rgb(q.rimFollow ? q.color : q.rimColor).map(c => c * 2.0 * q.rimStrength * rf);
       for (let j = 0; j < T.rim.length; j += 2) {
@@ -1014,11 +1176,10 @@ function drawThumbs(time) {
     }
     const factor = q.b0 + q.ba * Math.sin(time * q.bs);
     for (let j = 0; j < T.vis.length; j += 3) {
-      const ti = T.vis[j], du = T.vis[j + 1], dv = T.vis[j + 2];
-      th.sh(dv * W + du, dv, t, px3);
-      for (let k = 0; k < 3; k++) o[ti * 4 + k] = Math.min(255, o[ti * 4 + k] + px3[k] * factor * 255);
+      const ti = T.vis[j];
+      for (let k = 0; k < 3; k++) o[ti * 4 + k] = Math.min(255, o[ti * 4 + k] + col[j + k] * factor);
     }
-    th.ctx.putImageData(img, 0, 0);
+    th.ctx.putImageData(img, 0, 0); th.drawn = true;
   }
 }
 
@@ -1040,10 +1201,10 @@ function buildUI() {
     tile.onclick = () => applyPreset(name);
     tiles.appendChild(tile);
     const q = Object.assign({}, DEFAULTS, pr), ctx = tile.querySelector('canvas').getContext('2d');
-    thumbs.push({ P: q, sh: makeShader(q), ctx, img: ctx.createImageData(G.thumb.TW, G.thumb.TH), tile });
+    thumbs.push({ P: q, sh: makeShader(q), ctx, img: ctx.createImageData(G.thumb.TW, G.thumb.TH), tile }); thumbSeen.observe(tile);
   }
   galRoot.innerHTML = ''; galRoot.appendChild(gal);
-  const FIRST = { fx2: 0, fx: 1 };   // newest effects at the top of the Effects tab
+  const FIRST = { fx3: 0, fx2: 1, fx: 2 };   // newest effects at the top of the Effects tab
   for (const g of [...SCHEMA].sort((a, b) => (FIRST[a.id] ?? 9) - (FIRST[b.id] ?? 9))) {
     const card = document.createElement('details'); card.className = 'card group'; card.open = g.id !== 'files';
     card.innerHTML = `<summary><h2>${g.title}</h2></summary><p class="help">${g.help}</p>`;
@@ -1541,7 +1702,7 @@ document.getElementById('btnVtf').onclick = async e => {
   } finally { btn.disabled = false; prog.style.display = 'none'; }
 };
 
-window.__visor = { mergeVisor, PAC, buildOutfit, buildVTF, renderFrame, makeShader, P: () => P, DATA };
+window.__visor = { stats: STATS, mergeVisor, PAC, buildOutfit, buildVTF, renderFrame, makeShader, P: () => P, DATA };
 init();
 </script>
 </body>

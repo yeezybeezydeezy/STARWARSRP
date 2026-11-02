@@ -256,6 +256,27 @@ const SCHEMA = [
     { k: 'glitchAmt', label: 'Glitch slices', min: 0, max: 1, step: 0.01, def: 0 },
     { k: 'flickerAmt', label: 'Flicker', min: 0, max: 1, step: 0.01, def: 0 },
   ]},
+  { id: 'fx', title: 'Special effects', tex: true, help: 'Big animated effects. Speeds are whole repeats per loop so the loop stays seamless. Colour cycle ignores your regiment colour: check the server colour rules first.', items: [
+    { k: 'plasmaAmt', label: 'Plasma flow', min: 0, max: 1.2, step: 0.01, def: 0 },
+    { k: 'plasmaScale', label: 'Plasma size', min: 10, max: 120, step: 1, def: 45 },
+    { k: 'plasmaSpeed', label: 'Plasma speed (per loop)', min: 1, max: 4, step: 1, def: 1 },
+    { k: 'fireAmt', label: 'Flames', min: 0, max: 1.2, step: 0.01, def: 0 },
+    { k: 'fireHeight', label: 'Flame height', min: 0.2, max: 1.5, step: 0.05, def: 0.7 },
+    { k: 'rainAmt', label: 'Code rain', min: 0, max: 1.2, step: 0.01, def: 0 },
+    { k: 'rainCols', label: 'Code rain columns', min: 12, max: 90, step: 1, def: 40 },
+    { k: 'arcAmt', label: 'Lightning arcs', min: 0, max: 1.2, step: 0.01, def: 0 },
+    { k: 'arcRate', label: 'Lightning frequency', min: 0.05, max: 1, step: 0.01, def: 0.35 },
+    { k: 'warpAmt', label: 'Hyperspace streaks', min: 0, max: 1.2, step: 0.01, def: 0 },
+    { k: 'warpSpeed', label: 'Hyperspace speed (per loop)', min: 1, max: 6, step: 1, def: 2 },
+    { k: 'radarAmt', label: 'Radar sweep', min: 0, max: 1.2, step: 0.01, def: 0 },
+    { k: 'radarSpins', label: 'Radar turns per loop', min: 1, max: 4, step: 1, def: 1 },
+    { k: 'eqAmt', label: 'Equalizer bars', min: 0, max: 1.2, step: 0.01, def: 0 },
+    { k: 'eqBars', label: 'Equalizer bar count', min: 6, max: 40, step: 1, def: 18 },
+    { k: 'reticleAmt', label: 'Targeting reticle', min: 0, max: 1.2, step: 0.01, def: 0 },
+    { k: 'reticleSize', label: 'Reticle size', min: 10, max: 60, step: 1, def: 26 },
+    { k: 'hueAmt', label: 'Colour cycle', min: 0, max: 1, step: 0.01, def: 0 },
+    { k: 'hueSpread', label: 'Colour cycle spread', min: 0, max: 2, step: 0.05, def: 0.6 },
+  ]},
   { id: 'motion', title: 'Brightness & motion', help: 'Outfit settings: no new texture needed.', items: [
     { k: 'b0', label: 'Overall brightness', min: 0, max: 1.6, step: 0.01, def: 0.85 },
     { k: 'ba', label: 'Breathing amount', min: 0, max: 0.6, step: 0.01, def: 0.15 },
@@ -341,6 +362,18 @@ const PRESETS = {
   'Vertical Scan': { lineAngle: 90, lineAmt: 0.3, lineSharp: 0.5, lineSpacing: 1.6, lineScroll: 3, scanBarAmt: 0.3, scanBarPasses: 2, coreAmt: 0, haloAmt: 0, trailAmt: 0 },
   'Static Storm': { noiseAmt: 0.35, glitchAmt: 0.35, flickerAmt: 0.5, lineAmt: 0.2, interf: 0.2, coreAmt: 0.15 },
   'Reactor Core': { rippleAmt: 0.3, rippleSpacing: 12, rippleScroll: -3, hexAmt: 0.2, hexSize: 9, base: 0.34, coreAmt: 0, haloAmt: 0, trailAmt: 0, ba: 0.25, bs: 3 },
+  // ---- special effects
+  'Plasma Core': { plasmaAmt: 0.75, plasmaScale: 40, base: 0.12, lineAmt: 0, interf: 0, coreAmt: 0.15, haloAmt: 0.1, trailAmt: 0, reflAmt: 0.2 },
+  'Nebula': { plasmaAmt: 0.55, plasmaScale: 70, color2: '#16203A', gradAmt: 0.6, gradDir: 'radial', base: 0.16, lineAmt: 0.05, coreAmt: 0, haloAmt: 0, trailAmt: 0 },
+  'Inferno Visor': { fireAmt: 0.95, fireHeight: 0.8, base: 0.1, lineAmt: 0, interf: 0, coreAmt: 0, haloAmt: 0, trailAmt: 0, topShade: 0 },
+  'Code Rain': { rainAmt: 0.95, rainCols: 44, base: 0.06, lineAmt: 0, interf: 0, coreAmt: 0, haloAmt: 0, trailAmt: 0, reflAmt: 0.15, edgeAmt: 0.25 },
+  'Storm Caller': { arcAmt: 0.9, arcRate: 0.4, flickerAmt: 0.25, base: 0.16, lineAmt: 0.06, coreAmt: 0, haloAmt: 0, trailAmt: 0 },
+  'Hyperspace Jump': { warpAmt: 0.95, warpSpeed: 3, base: 0.08, lineAmt: 0, interf: 0, coreAmt: 0, haloAmt: 0, trailAmt: 0, rimAmt: 0.4 },
+  'Radar Lock': { radarAmt: 0.8, radarSpins: 1, base: 0.08, lineAmt: 0.08, lineSharp: 0.6, coreAmt: 0, haloAmt: 0, trailAmt: 0 },
+  'Target Acquired': { reticleAmt: 0.9, reticleSize: 24, scanBarAmt: 0.25, scanBarW: 0.03, lineAmt: 0.15, lineSharp: 0.5, coreAmt: 0.2 },
+  'Comms Equalizer': { eqAmt: 0.85, eqBars: 22, base: 0.08, lineAmt: 0, interf: 0, coreAmt: 0, haloAmt: 0, trailAmt: 0 },
+  'Spectrum (event only)': { hueAmt: 1, hueSpread: 0.6, plasmaAmt: 0.35, plasmaScale: 55, base: 0.22, lineAmt: 0.08 },
+  'Overload': { arcAmt: 0.7, arcRate: 0.6, plasmaAmt: 0.4, glitchAmt: 0.35, flickerAmt: 0.3, base: 0.2, coreAmt: 0.3 },
   'Radial Glow': { color2: '#4E94E6', gradAmt: 0.7, gradDir: 'radial', rimAmt: 0.5, lineAmt: 0.06, glintCount: 2, glintDir: 'rtl', coreAmt: 0.35 },
 };
 
@@ -446,6 +479,22 @@ function hexCell(px, py) {   // distance to hex centre (0.5 = edge) and the cell
   return [Math.max(Math.abs(gx), Math.abs(gx) * 0.5 + Math.abs(gy) * 0.8660254), px - gx, py - gy];
 }
 
+// smooth value noise; py > 0 makes it repeat every py cells in y (for effects that scroll a whole period per loop)
+const hash2 = (a, b) => fract(Math.sin(a * 127.1 + b * 311.7) * 43758.5453);
+function vnoise(x, y, py) {
+  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  const y0 = py ? mod(yi, py) : yi, y1 = py ? mod(yi + 1, py) : yi + 1;
+  return hash2(xi, y0) * (1 - u) * (1 - v) + hash2(xi + 1, y0) * u * (1 - v) + hash2(xi, y1) * (1 - u) * v + hash2(xi + 1, y1) * u * v;
+}
+const fbm = (x, y, py) => 0.55 * vnoise(x, y, py) + 0.3 * vnoise(x * 2 + 5.2, y * 2, py && py * 2) + 0.15 * vnoise(x * 4 + 9.7, y * 4, py && py * 4);
+function hueRotate(c, a) {   // rotate an RGB colour's hue by a radians (the standard hue-rotate matrix, luma kept)
+  const cs = Math.cos(a), sn = Math.sin(a);
+  return [
+    Math.max(0, (0.213 + 0.787 * cs - 0.213 * sn) * c[0] + (0.715 - 0.715 * cs - 0.715 * sn) * c[1] + (0.072 - 0.072 * cs + 0.928 * sn) * c[2]),
+    Math.max(0, (0.213 - 0.213 * cs + 0.143 * sn) * c[0] + (0.715 + 0.285 * cs + 0.140 * sn) * c[1] + (0.072 - 0.072 * cs - 0.283 * sn) * c[2]),
+    Math.max(0, (0.213 - 0.213 * cs - 0.787 * sn) * c[0] + (0.715 - 0.715 * cs + 0.715 * sn) * c[1] + (0.072 + 0.928 * cs + 0.072 * sn) * c[2])];
+}
+
 // one visor texel at loop position t (0..1). With every new effect at its default this is exactly the shipped v3 recipe.
 function makeShader(p, D) {
   D = D || G.D[512];
@@ -460,6 +509,9 @@ function makeShader(p, D) {
   const sharpGain = 0.5 / mp;            // thin lines keep the same average brightness as soft ones
   const rmax = Math.hypot(W * 0.5 * ASPECT, H * 0.5);
   const BASE = [0, 0, 0];
+  // top and bottom of the glass in each texture column, so flames and bars rise from the bottom edge of every part
+  const colTop = new Float32Array(D.W).fill(1e9), colBot = new Float32Array(D.W).fill(-1);
+  for (let yy = 0; yy < D.H; yy++) for (let xx = 0; xx < D.W; xx++) if (D.mask[yy * D.W + xx] > 0.5) { colTop[xx] = Math.min(colTop[xx], yy); colBot[xx] = Math.max(colBot[xx], yy); }
   return function (i, yt, t, out) {
     const m = D.mask[i]; if (m <= 0) { out[0] = out[1] = out[2] = 0; return; }
     const xt = i - yt * D.W, x = xt * sx, y = yt * sy, un = D.un[i], vn = D.vn[i], f = Math.round(t * FX) % FX;
@@ -513,6 +565,75 @@ function makeShader(p, D) {
       let tt = fract(t * p.scanBarPasses); if (p.scanBarDir === 'up') tt = 1 - tt;
       bar = p.scanBarAmt * Math.exp(-(((vn - (DATA.vtop - 0.08 + (DATA.vbot - DATA.vtop + 0.16) * tt)) / p.scanBarW) ** 2));
     }
+    // ---- special effects (all off by default)
+    let fx = 0, fxHot = 0;   // fx: tinted with the visor colour, fxHot: near-white highlights
+    const rel = colBot[xt] > colTop[xt] ? clamp((yt - colTop[xt]) / (colBot[xt] - colTop[xt]), 0, 1) : clamp((vn - DATA.vtop) / (DATA.vbot - DATA.vtop), 0, 1);   // 0 top .. 1 bottom of the glass here
+    if (p.plasmaAmt > 0) {   // flowing energy: warped noise drifting round a circle (seamless)
+      const S = p.plasmaScale, a = TAU * t * p.plasmaSpeed;
+      const n1 = fbm(x / S + 1.6 * Math.cos(a), y / S + 1.6 * Math.sin(a));
+      const n2 = fbm(x / S + 2.5 * n1 + 4.1, y / S - 2.0 * n1 + 1.7);
+      const band = 0.5 + 0.5 * Math.sin(TAU * (n2 * 3 + t * p.plasmaSpeed));
+      fx += p.plasmaAmt * (0.35 * n2 + 0.65 * band * band); fxHot += p.plasmaAmt * 0.35 * Math.pow(band, 8);
+    }
+    if (p.fireAmt > 0) {   // flames licking up from the bottom of the visor; the noise repeats once per loop so it scrolls seamlessly
+      const sc = 22, per = 6, n = fbm(x / sc, y / sc + t * per, per);
+      const heat = clamp((rel - (1 - p.fireHeight)) / p.fireHeight + (n - 0.5) * 1.1, 0, 1);
+      fx += p.fireAmt * heat * heat * 1.4; fxHot += p.fireAmt * Math.pow(heat, 5) * 0.9;
+    }
+    if (p.rainAmt > 0) {   // falling code: columns of flickering glyph blocks with a bright head
+      const cw = W / p.rainCols, col = Math.floor(x / cw), sp = 1 + Math.floor(h1(col * 3.7) * 3), ph = h1(col * 9.1);
+      const head = (fract(t * sp + ph) * 1.6 - 0.3) * H, dy = head - y;
+      if (dy >= 0) {
+        const cell = Math.floor(y / (cw * 1.3)), glyph = h3(col, cell, Math.floor(t * FX / 2)) > 0.35 ? 1 : 0.15;
+        const inCol = Math.abs((x / cw) % 1 - 0.5) < 0.38 ? 1 : 0;
+        const tr = Math.exp(-dy / (H * 0.35));
+        fx += p.rainAmt * tr * glyph * inCol; fxHot += p.rainAmt * (dy < cw * 1.3 ? 1 : 0) * inCol;
+      }
+    }
+    if (p.arcAmt > 0 && h1(f * 5.77 + 1.3) < p.arcRate) {   // lightning: jagged bolts across the visor on random frames
+      for (let b = 0; b < 2; b++) {
+        const sd = f * 3.1 + b * 17.3, y0 = (0.25 + 0.5 * h1(sd)) * H, j = (fbm(x / 18 + sd, sd * 0.37) - 0.5) * 70 + (fbm(x / 6 + sd, sd) - 0.5) * 14;
+        const dd = Math.abs(y - (y0 + j));
+        fxHot += p.arcAmt * Math.exp(-((dd / 1.6) ** 2)); fx += p.arcAmt * 0.6 * Math.exp(-dd / 9);
+      }
+    }
+    if (p.warpAmt > 0) {   // hyperspace: streaks rushing outwards from the visor centre
+      const dx = (x - G.cx) * ASPECT, dy = y - G.cy, r = Math.hypot(dx, dy), ang = Math.atan2(dy, dx);
+      const lane = Math.floor((ang / TAU + 0.5) * 140), lr = h1(lane * 7.3);
+      if (lr > 0.45) {
+        const s = fract(r / 160 - t * p.warpSpeed - lr * 3);
+        const streak = Math.exp(-(((s - 0.5) / 0.09) ** 2)) * clamp(r / 30, 0, 1);
+        const centre = Math.abs(fract((ang / TAU + 0.5) * 140) - 0.5) < 0.25 ? 1 : 0.2;
+        fx += p.warpAmt * streak * centre; fxHot += p.warpAmt * streak * centre * Math.exp(-(((s - 0.55) / 0.03) ** 2));
+      }
+    }
+    if (p.radarAmt > 0) {   // radar: a beam turning round the visor centre with a fading trail and contacts that ping
+      const dx = (x - G.cx) * ASPECT, dy = y - G.cy, ang = Math.atan2(dy, dx), beam = TAU * fract(t * p.radarSpins);
+      const behind = mod(beam - ang, TAU);
+      fx += p.radarAmt * (0.9 * Math.exp(-behind / 0.9) + 0.12 * (0.5 + 0.5 * Math.cos(TAU * Math.hypot(dx, dy) / 24)) * Math.exp(-behind / 2.5));
+      for (let b = 0; b < 6; b++) {
+        const bx = (h1(b * 4.1) - 0.5) * W * 0.8 * ASPECT, by = (h1(b * 6.7) - 0.5) * H * 0.7, ba = Math.atan2(by, bx);
+        const since = mod(beam - ba, TAU), dd = Math.hypot(dx - bx, dy - by);
+        fxHot += p.radarAmt * Math.exp(-((dd / 4) ** 2)) * Math.exp(-since / 1.2);
+      }
+    }
+    if (p.eqAmt > 0) {   // equalizer: segmented bars bouncing up from the bottom of the visor
+      const nb = Math.round(p.eqBars), bi = Math.floor(un * nb), inBar = fract(un * nb) < 0.72 ? 1 : 0;
+      const k1 = 1 + Math.floor(h1(bi * 2.3) * 3), k2 = 2 + Math.floor(h1(bi * 5.9) * 4);
+      const lvl = 0.15 + 0.85 * Math.abs(Math.sin(TAU * (t * k1 + h1(bi))) * (0.6 + 0.4 * Math.sin(TAU * (t * k2 + h1(bi * 3.3)))));
+      const seg = fract(rel * 14) < 0.7 ? 1 : 0, lit = (1 - rel) < lvl ? 1 : 0;
+      fx += p.eqAmt * inBar * seg * lit * (0.6 + 0.6 * (1 - rel)); fxHot += p.eqAmt * inBar * seg * (Math.abs((1 - rel) - lvl) < 0.05 ? 0.8 : 0);
+    }
+    if (p.reticleAmt > 0) {   // targeting reticle on the left of the visor: rotating broken ring, ticks and a pulsing centre
+      const cx = W * 0.2, cy = G.wingY, dx = (x - cx) * ASPECT, dy = y - cy, r = Math.hypot(dx, dy), ang = Math.atan2(dy, dx) - TAU * t;
+      const R = p.reticleSize * (1 + 0.08 * Math.sin(TAU * t * 2));
+      const ret1 = Math.exp(-(((r - R) / 1.4) ** 2)) * (Math.cos(4 * ang) > -0.2 ? 1 : 0);
+      const ret2 = Math.exp(-(((r - R * 0.55) / 1.1) ** 2)) * (Math.cos(3 * (ang + TAU * t * 3)) > 0.3 ? 1 : 0);
+      const tick = (Math.abs(dx) < 1.2 || Math.abs(dy) < 1.2) && r > R * 1.15 && r < R * 1.5 ? 1 : 0;
+      const dot = Math.exp(-((r / (2 + 1.5 * (0.5 + 0.5 * Math.sin(TAU * t * 4)))) ** 2));
+      fxHot += p.reticleAmt * (ret1 + 0.7 * ret2 + tick + dot);
+    }
+    if (p.hueAmt > 0) { const hb = hueRotate(BASE, TAU * p.hueAmt * fract(t + un * p.hueSpread)); BASE[0] = hb[0]; BASE[1] = hb[1]; BASE[2] = hb[2]; }
     // reflection
     const d = D.diag[i];
     const refl = 0.10 * Math.exp(-(((d - 0.30) / 0.03) ** 2)) + 0.07 * Math.exp(-(((d - 0.36) / 0.010) ** 2));
@@ -530,7 +651,8 @@ function makeShader(p, D) {
     for (let k = 0; k < 3; k++) {
       const glass = 0.5 * BASE[k] + 0.5 * GW[k], coreC = 0.45 * BASE[k] + 0.55 * CW[k];
       out[k] = clamp((glow * BASE[k] + e * EDGE[k] + r * glass + core * coreC + halo * BASE[k] + trail * BASE[k]
-        + bar * (0.5 * BASE[k] + 0.5 * CW[k]) + wave * coreC + ring * BASE[k] + hex * BASE[k]) * gm * m, 0, 1);
+        + bar * (0.5 * BASE[k] + 0.5 * CW[k]) + wave * coreC + ring * BASE[k] + hex * BASE[k]
+        + fx * BASE[k] + fxHot * coreC) * gm * m, 0, 1);
     }
   };
 }

@@ -5,7 +5,7 @@
 
 const REPO = 'yeezybeezydeezy/STARWARSRP', BRANCH = 'uploads';
 const RAW = `https://raw.githubusercontent.com/${REPO}/${BRANCH}/`;
-const SIZES = ['256x128', '512x256', '1024x512'], FRAMES = [24, 48, 96];
+const SIZES = ['256x128', '512x256', '1024x512'], FRAMES = [24, 48, 96], PAINT_SIZES = [256, 512, 1024];   // 1024 = server max
 const PER_HOUR = 12;   // uploads per visitor per hour (best effort: counted per Worker instance)
 const recent = new Map();
 
@@ -24,7 +24,8 @@ function checkVTF(b) {
   if (u8[0] !== 86 || u8[1] !== 84 || u8[2] !== 70 || u8[3] !== 0) return 'not a VTF';
   if (d.getUint32(4, true) !== 7 || d.getUint32(8, true) !== 2 || d.getUint32(12, true) !== 80) return 'wrong VTF version';
   const w = d.getUint16(16, true), h = d.getUint16(18, true), frames = d.getUint16(24, true);
-  if (!SIZES.includes(`${w}x${h}`) || !FRAMES.includes(frames)) return 'not a visor texture size';
+  const paint = frames === 1 && w === h && PAINT_SIZES.includes(w);   // a helmet paint with the visor blacked out
+  if (!paint && (!SIZES.includes(`${w}x${h}`) || !FRAMES.includes(frames))) return 'not a visor texture size';
   if (d.getUint32(52, true) !== 13 || d.getUint32(57, true) !== 0xFFFFFFFF) return 'not DXT1';
   let lw = w, lh = h, mips = 0, bytes = 80;
   for (;;) { mips++; bytes += Math.max(1, Math.ceil(lw / 4)) * Math.max(1, Math.ceil(lh / 4)) * 8 * frames; if (lw === 1 && lh === 1) break; lw = Math.max(1, lw >> 1); lh = Math.max(1, lh >> 1); }

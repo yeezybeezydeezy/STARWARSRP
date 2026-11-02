@@ -399,6 +399,7 @@ const SCHEMA = [
     { k: 'rimColor', type: 'color', label: 'Rim colour', def: '#274A73' },
   ]},
   { id: 'files', title: 'Textures & files', help: 'Where the outfit loads its textures from.', items: [
+    { k: 'blackVisor', type: 'bool', label: 'Black glass under the glow', def: true },
     { k: 'finish', type: 'select', label: 'Visor finish', def: 'matte', options: [['matte', 'Matte (edited normal map)'], ['glossy', 'Glossy (original)']] },
     { k: 'texSource', type: 'select', label: 'Texture source', def: 'url', options: [['url', 'Link (everyone sees it)'], ['local', 'Local test file (only you)']] },
     { k: 'texUrl', type: 'text', label: 'Visor texture link', def: 'https://raw.githubusercontent.com/yeezybeezydeezy/gmodstuff/main/pac3/501st_visor_anim_v3.vtf' },
@@ -1066,9 +1067,9 @@ async function initGL() {
     else gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     return t;
   };
-  GLS.baseFor = regOf(P).basetexture;
-  const [base, rim] = await Promise.all([loadImg(REG.textures[GLS.baseFor]), loadImg(MESH.rim)]);
-  GLS.baseTex = texture(0, base, true);
+  GLS.baseFor = regOf(P).basetexture + '|' + P.blackVisor;
+  const [base, rim] = await Promise.all([loadImg(REG.textures[regOf(P).basetexture]), loadImg(MESH.rim)]);
+  GLS.baseTex = texture(0, P.blackVisor ? blackenPaint(base) : base, true);
   texture(1, rim, true);
   GLS.detImg = new ImageData(W, H); for (let i = 3; i < GLS.detImg.data.length; i += 4) GLS.detImg.data[i] = 255;
   GLS.det = texture(2, GLS.detImg, false);
@@ -1095,13 +1096,27 @@ async function initGL() {
 // swap the 3D helmet's paint to the selected regiment (full 1024x1024 paint from the repo)
 async function setHelmetTexture() {
   const gl = GLS.gl; if (!gl) return;
-  const bt = regOf(P).basetexture, src = REG.textures[bt];
-  if (!src || GLS.baseFor === bt) return;
-  GLS.baseFor = bt;
+  const bt = regOf(P).basetexture, src = REG.textures[bt], key = bt + '|' + P.blackVisor;
+  if (!src || GLS.baseFor === key) return;
+  GLS.baseFor = key;
   const im = await loadImg(src);
-  if (GLS.baseFor !== bt) return;   // another regiment was picked while this one loaded
+  if (GLS.baseFor !== key) return;   // another regiment was picked while this one loaded
   gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, GLS.baseTex);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, im); gl.generateMipmap(gl.TEXTURE_2D);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, P.blackVisor ? blackenPaint(im) : im); gl.generateMipmap(gl.TEXTURE_2D);
+}
+
+// the helmet paint with the visor glass painted black (the visor mask, mapped from detail space back onto the paint)
+function blackenPaint(im) {
+  const n = Math.min(1024, im.width), c = document.createElement('canvas'); c.width = c.height = n;
+  const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(im, 0, 0, n, n);
+  const d = x.getImageData(0, 0, n, n), M = G.D[1024], [u0, v0, u1, v1] = HELMET.rect;
+  for (let py = Math.floor(v0 * n); py < Math.min(n, Math.ceil(v1 * n)); py++) for (let px = Math.floor(u0 * n); px < Math.min(n, Math.ceil(u1 * n)); px++) {
+    const mx = Math.min(M.W - 1, Math.floor(((px + 0.5) / n - u0) / (u1 - u0) * M.W)), my = Math.min(M.H - 1, Math.floor(((py + 0.5) / n - v0) / (v1 - v0) * M.H));
+    if (mx < 0 || my < 0) continue;
+    const m = Math.min(1, M.mask[my * M.W + mx] * 1.6), k = (py * n + px) * 4;   // a touch past the edge so no paint fringe shows
+    d.data[k] *= 1 - m; d.data[k + 1] *= 1 - m; d.data[k + 2] *= 1 - m;
+  }
+  x.putImageData(d, 0, 0); return c;
 }
 
 function drawGL(t, factor, rimTint, key) {
@@ -1286,7 +1301,7 @@ function refresh() {
   const texChanged = texChangedOf(P);
   const q = qual(P), qs = document.getElementById('exQuality');
   if (document.activeElement !== qs) qs.value = P.exQuality in QUALITY ? P.exQuality : 'high';
-  showPick(); showMerge();
+  showPick(); showMerge(); setHelmetTexture();
   const lookChanged = SCHEMA.filter(g => g.tex && PANE_OF_TAB[g.id] === 'look').some(g => g.items.some(i => String(P[i.k]) !== String(DEFAULTS[i.k])));
   const fxChanged = SCHEMA.filter(g => g.tex && PANE_OF_TAB[g.id] === 'effects').some(g => g.items.some(i => String(P[i.k]) !== String(DEFAULTS[i.k])));
   document.getElementById('dotLook').classList.toggle('show', lookChanged); document.getElementById('dotFx').classList.toggle('show', fxChanged);
@@ -1460,7 +1475,7 @@ function buildOutfit(p) {
   const [u0, v0, u1, v1] = HELMET.rect, sx = 1 / (u1 - u0), sy = 1 / (v1 - v0), r5 = x => +x.toFixed(5);
   const e = regOf(p), vmt = e.vmt || {};   // shading from the helmet's own material (Phase 2 keeps the approved values)
   const mat = {
-    MaterialOverride: e.material, basetexture: e.basetexture,
+    MaterialOverride: e.material, basetexture: p.blackVisor && p.paintFor === e.basetexture && p.paintUrl ? p.paintUrl : e.basetexture,
     bumpmap: p.finish === 'matte' && p.nmUrl ? p.nmUrl : HELMET.bumpmap,
     color2: vmt.color2 ? new Vec(...vmt.color2) : new Vec(0.9, 0.9, 0.9), halflambert: true, model: true, nocull: true,
     phong: true, phongboost: vmt.phongboost ?? 1.7, phongexponent: f(vmt.phongexponent ?? 15), phongexponenttexture: vmt.phongexponenttexture ?? 'wgcwrp/shared/plain_exp',
@@ -1589,6 +1604,7 @@ function mergeVisor(userText, p) {
     return { text: PAC.dump(top), note: `No material for this helmet found in your PAC, so the visor was added as its own part (it uses the stock ${e.group} paint on the helmet).` };
   }
   const [mat, parents] = found, g = ourGlow.self;
+  if (slash(mat.self.basetexture) === slash(e.basetexture) && g.basetexture !== e.basetexture) mat.self.basetexture = g.basetexture;
   for (const k of ['detail', 'detailblendmode', 'detailblendfactor', 'detailscale', 'detailframe', 'detailtexturetransformScale',
     'detailtexturetransformPosition', 'selfillum', 'selfillummask', 'selfillumtint']) if (k in g) mat.self[k] = g[k];
   for (const k of ['detailtexturetransformAngle']) if (k in mat.self) mat.self[k] = { raw: '0' };
@@ -1617,8 +1633,35 @@ document.getElementById('fileMerge').onchange = async e => {
   keepMerge(); showMerge();
 };
 
+// black glass: build the paint with the visor blacked out as a 1024 DXT1 VTF, upload it once per paint
+async function linkPaint(btn) {
+  const bt = regOf(P).basetexture;
+  if (!P.blackVisor || !UPLOAD_URL || (P.paintFor === bt && P.paintUrl)) return true;
+  btn.disabled = true;
+  try {
+    flash('Blacking out the visor glass on your helmet paint…');
+    const c = blackenPaint(await loadImg(REG.textures[bt])), n = c.width, px = c.getContext('2d').getImageData(0, 0, n, n).data, rgb = new Uint8Array(n * n * 3);
+    for (let i = 0; i < n * n; i++) { rgb[i * 3] = px[i * 4]; rgb[i * 3 + 1] = px[i * 4 + 1]; rgb[i * 3 + 2] = px[i * 4 + 2]; }
+    const levels = []; for (let l = 0; ; l++) { const s = Math.max(1, n >> l); levels.push(l ? encodeDXT1(boxDown(rgb, n, n, l), s, s) : encodeDXT1(rgb, n, n)); if (s === 1) break; }
+    const hdr = new ArrayBuffer(80), dv = new DataView(hdr);
+    [86, 84, 70, 0].forEach((ch, i) => dv.setUint8(i, ch));
+    dv.setUint32(4, 7, true); dv.setUint32(8, 2, true); dv.setUint32(12, 80, true); dv.setUint16(16, n, true); dv.setUint16(18, n, true);
+    dv.setUint32(20, 0, true); dv.setUint16(24, 1, true); dv.setFloat32(32, 0.5, true); dv.setFloat32(36, 0.5, true); dv.setFloat32(40, 0.5, true); dv.setFloat32(48, 1.0, true);
+    dv.setUint32(52, 13, true); dv.setUint8(56, levels.length); dv.setUint32(57, 0xFFFFFFFF, true); dv.setUint16(63, 1, true);
+    const blob = new Blob([new Uint8Array(hdr), ...levels.reverse()], { type: 'application/octet-stream' });   // smallest mip first
+    flash('Uploading your blacked-out helmet paint…');
+    const r = await fetch(UPLOAD_URL, { method: 'POST', body: blob, headers: { 'content-type': 'application/octet-stream' } });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.url) throw new Error(j.error || 'upload service answered ' + r.status);
+    P.paintUrl = j.url; P.paintFor = bt; save();
+    return true;
+  } catch (err) {
+    flash(`Upload failed (${err.message}). Nothing was saved: try again, or turn off "Black glass under the glow".`);
+    return false;
+  } finally { btn.disabled = false; }
+}
 document.getElementById('btnOutfit').onclick = async e => {
-  if (!await linkTexture(e.target)) return;
+  if (!await linkTexture(e.target) || !await linkPaint(e.target)) return;
   if (MERGE) {
     let r; try { r = mergeVisor(MERGE.text, P); } catch (err) { flash(`Could not merge into ${MERGE.name}: ${err.message}.`); return; }
     const name = MERGE.name.replace(/\.txt$/i, '').replace(/[^\w\-]+/g, '_') + '_visor.txt';

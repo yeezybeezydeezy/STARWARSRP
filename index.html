@@ -827,7 +827,7 @@ function buildOutfit(p) {
   const rc = hex2rgb(p.rimFollow ? p.color : p.rimColor).map(c => +(c * 2.0 * p.rimStrength).toFixed(4));
   const tex = p.texSource === 'local' ? p.texLocal : p.texUrl;
   const mat = {
-    MaterialOverride: 'helmet', basetexture: regOf(p).basetexture,
+    MaterialOverride: regOf(p).material, basetexture: regOf(p).basetexture,
     bumpmap: p.finish === 'matte' ? p.nmUrl : 'wgcwrp/shared/helmet_nm',
     color2: new Vec(0.9, 0.9, 0.9), halflambert: true, model: true, nocull: true,
     phong: true, phongboost: 1.7, phongexponent: f(15), phongexponenttexture: 'wgcwrp/shared/plain_exp',

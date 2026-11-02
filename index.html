@@ -126,9 +126,14 @@
 // opened as a local file it reads them from the GitHub Pages copy
 const BASE = location.protocol === 'file:' ? 'https://yeezybeezydeezy.github.io/STARWARSRP/' : '';
 const getJSON = n => fetch(BASE + n).then(r => { if (!r.ok) throw new Error(n + ' ' + r.status); return r.json(); });
-const [DATA, MESH, REG] = await Promise.all(['data/editor.json', 'data/mesh.json', 'data/regiments.json'].map(getJSON));   // REG: regiment models whose Phase 2 helmet shares the 501st UV layout
+const [REG, TYPES] = await Promise.all(['data/regiments.json', 'data/helmets.json'].map(getJSON));   // REG: every model + helmet skin, TYPES: helmet shapes
 const loadImg = n => new Promise((res, rej) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => res(i); i.onerror = () => rej(new Error('could not load ' + n)); i.src = BASE + n; });
 const regOf = p => REG.entries.find(e => e.id === p.regiment) || REG.entries.find(e => e.id === '501st_enlisted');
+const typeOf = e => TYPES.find(t => t.id === e.type);
+// each helmet shape has its own visor layout, mesh and hosted textures; the page loads the one the saved pick wears
+// (picking a different shape saves and reloads)
+const HELMET = typeOf(regOf((() => { try { return JSON.parse(localStorage.getItem('visorEditor.v1') || 'null') || {}; } catch (e) { return {}; } })()));
+const [DATA, MESH] = await Promise.all([HELMET.data, HELMET.mesh].map(getJSON));
 
 // ---------------------------------------------------------------- settings schema
 const REGIMENT = [
@@ -247,6 +252,7 @@ const TEX_KEYS = SCHEMA.filter(g => g.tex).flatMap(g => g.items.map(i => i.k));
 const DEFAULTS = Object.fromEntries(SCHEMA.flatMap(g => g.items.map(i => [i.k, i.def])));
 DEFAULTS.exQuality = 'high';
 DEFAULTS.regiment = '501st_enlisted';
+for (const k of ['texUrl', 'rimUrl', 'nmUrl']) DEFAULTS[k] = HELMET[k];   // this helmet shape's hosted textures
 // 501st-family colours only (rule 5): main #274A73 plus lighter/darker blues as accents
 const PRESETS = {
   // ---- outfit only: no upload needed
@@ -279,6 +285,7 @@ const PRESETS = {
 
 let P = Object.assign({}, DEFAULTS);
 try { const s = JSON.parse(localStorage.getItem('visorEditor.v1') || 'null'); if (s) Object.assign(P, s); } catch (e) {}
+for (const k of ['texUrl', 'rimUrl', 'nmUrl']) if (P[k] !== HELMET[k] && TYPES.some(t => t[k] === P[k])) P[k] = HELMET[k];   // another shape's stock link
 const save = () => { try { localStorage.setItem('visorEditor.v1', JSON.stringify(P)); } catch (e) {} };
 
 // ---------------------------------------------------------------- data decoding
@@ -566,7 +573,7 @@ async function initGL() {
   GLS.detImg = new ImageData(W, H); for (let i = 3; i < GLS.detImg.data.length; i += 4) GLS.detImg.data[i] = 255;
   GLS.det = texture(2, GLS.detImg, false);
   gl.uniform1i(GLS.u('uBase'), 0); gl.uniform1i(GLS.u('uRim'), 1); gl.uniform1i(GLS.u('uDet'), 2);
-  gl.uniform4f(GLS.u('uReg'), 0.340, 0.844, 0.643 - 0.340, 0.955 - 0.844);   // base-UV rectangle the visor texture covers
+  gl.uniform4f(GLS.u('uReg'), HELMET.rect[0], HELMET.rect[1], HELMET.rect[2] - HELMET.rect[0], HELMET.rect[3] - HELMET.rect[1]);   // base-UV rectangle the visor texture covers
   gl.enable(gl.DEPTH_TEST);
   const D = G.D[512], ml = []; for (let i = 0; i < D.mask.length; i++) if (D.mask[i] > 0) ml.push(i);
   GLS.ml = Int32Array.from(ml);
@@ -658,8 +665,8 @@ function buildUI() {
   const sideL = document.getElementById('sideL'), sideR = document.getElementById('sideR'), galRoot = document.getElementById('gallery');
   const qs = document.getElementById('exQuality'), rs = document.getElementById('regiment'), groups = {};
   for (const e of REG.entries) (groups[e.group] = groups[e.group] || []).push(e);
-  rs.innerHTML = Object.entries(groups).map(([g, es]) => `<optgroup label="${g}">${es.map(e => `<option value="${e.id}">${g.split(' ')[0]} · ${e.label}</option>`).join('')}</optgroup>`).join('')
-    + `<optgroup label="Not supported (different helmet)">${REG.unsupported.map(u => `<option disabled>${u}</option>`).join('')}</optgroup>`;
+  rs.innerHTML = Object.entries(groups).map(([g, es]) => `<optgroup label="${g}">${es.map(e => `<option value="${e.id}">${g} · ${e.label}</option>`).join('')}</optgroup>`).join('')
+    + `<optgroup label="Not supported">${REG.unsupported.map(u => `<option disabled>${u}</option>`).join('')}</optgroup>`;
   qs.innerHTML = Object.entries(QUALITY).map(([k, q]) => `<option value="${k}">${q.label} · ${q.res}×${q.res / 2} · ${q.frames} frames</option>`).join('');
   const gal = document.createElement('div'); gal.className = 'card gallery';
   gal.innerHTML = `<h2>Presets</h2><p class="help">Click one to apply it. <span class="tag live">outfit</span> presets only change the outfit file. <span class="tag tex">texture</span> presets change the visor's look, so export the .vtf and host it.</p><div class="tiles"></div>`;
@@ -744,7 +751,7 @@ function refresh() {
   const rsel = document.getElementById('regiment'); if (document.activeElement !== rsel) rsel.value = regOf(P).id;
   document.getElementById('exSize').textContent = mb(vtfBytes(q.res, q.frames));
   document.querySelectorAll('.tile').forEach(t => t.classList.toggle('active', t.dataset.name === activePreset));
-  document.getElementById('texNote').classList.toggle('show', texChanged && P.texSource === 'url' && P.texUrl === DEFAULTS.texUrl);
+  document.getElementById('texNote').classList.toggle('show', texChanged && P.texSource === 'url' && P.texUrl === HELMET.texUrl);
   document.querySelector('.ctl[data-k="rimColor"]').style.opacity = P.rimFollow ? 0.45 : 1;
 }
 
@@ -759,10 +766,14 @@ document.getElementById('exQuality').addEventListener('change', e => { P.exQuali
 const keepFiles = () => Object.fromEntries(['texUrl', 'texLocal', 'rimUrl', 'nmUrl', 'shieldUrl', 'outName', 'texSource', 'finish', 'exQuality', 'regiment'].map(k => [k, P[k]]));
 document.getElementById('regiment').addEventListener('change', e => {
   P.regiment = e.target.value; const r = regOf(P);
-  P.color = r.color; activePreset = null; save(); setHelmetTexture(); refresh();
+  P.color = r.color; activePreset = null;
+  if (r.type !== HELMET.id) {   // different helmet shape: its own hosted textures, then reload with its visor + mesh
+    const t = typeOf(r); Object.assign(P, { texUrl: t.texUrl, rimUrl: t.rimUrl, nmUrl: t.nmUrl }); save(); location.reload(); return;
+  }
+  save(); setHelmetTexture(); refresh();
   flash(`${r.group} · ${r.label}: helmet paint and ${r.color} glow colour applied. A new colour needs the texture exported and hosted.`);
 });
-document.getElementById('btnReset').onclick = () => { P = Object.assign({}, DEFAULTS); save(); refresh(); flash('Reset to the current (v3) visor.'); };
+document.getElementById('btnReset').onclick = () => { P = Object.assign({}, DEFAULTS, { regiment: P.regiment, color: regOf(P).color }); save(); refresh(); flash('Reset to the current (v3) visor.'); };
 document.getElementById('btnSaveJson').onclick = () => download(new Blob([JSON.stringify(P, null, 2)], { type: 'application/json' }), 'visor_settings.json');
 document.getElementById('btnLoadJson').onclick = () => document.getElementById('fileJson').click();
 document.getElementById('fileJson').onchange = async e => {
@@ -826,14 +837,17 @@ function buildOutfit(p) {
 
   const rc = hex2rgb(p.rimFollow ? p.color : p.rimColor).map(c => +(c * 2.0 * p.rimStrength).toFixed(4));
   const tex = p.texSource === 'local' ? p.texLocal : p.texUrl;
+  // detail uv = scale * base uv + position maps the visor texture onto this helmet's visor rectangle
+  const [u0, v0, u1, v1] = HELMET.rect, sx = 1 / (u1 - u0), sy = 1 / (v1 - v0), r5 = x => +x.toFixed(5);
+  const e = regOf(p), vmt = e.vmt || {};   // shading from the helmet's own material (Phase 2 keeps the approved values)
   const mat = {
-    MaterialOverride: regOf(p).material, basetexture: regOf(p).basetexture,
-    bumpmap: p.finish === 'matte' ? p.nmUrl : 'wgcwrp/shared/helmet_nm',
-    color2: new Vec(0.9, 0.9, 0.9), halflambert: true, model: true, nocull: true,
-    phong: true, phongboost: 1.7, phongexponent: f(15), phongexponenttexture: 'wgcwrp/shared/plain_exp',
-    phongfresnelranges: new Vec(0.5, 0.5, 0), phongalbedotint: true,
+    MaterialOverride: e.material, basetexture: e.basetexture,
+    bumpmap: p.finish === 'matte' && p.nmUrl ? p.nmUrl : HELMET.bumpmap,
+    color2: vmt.color2 ? new Vec(...vmt.color2) : new Vec(0.9, 0.9, 0.9), halflambert: true, model: true, nocull: true,
+    phong: true, phongboost: vmt.phongboost ?? 1.7, phongexponent: f(vmt.phongexponent ?? 15), phongexponenttexture: vmt.phongexponenttexture ?? 'wgcwrp/shared/plain_exp',
+    phongfresnelranges: vmt.phongfresnelranges ? new Vec(...vmt.phongfresnelranges) : new Vec(0.5, 0.5, 0), phongalbedotint: true,
     detail: tex, detailblendmode: 5, detailblendfactor: f(1), detailscale: f(1), detailframe: 0,
-    detailtexturetransformScale: new Vec(3.30033, 9.00901, 1), detailtexturetransformPosition: new Vec(-1.12211, -7.6036, 0),
+    detailtexturetransformScale: new Vec(r5(sx), r5(sy), 1), detailtexturetransformPosition: new Vec(r5(-u0 * sx), r5(-v0 * sy), 0),
   };
   if (p.rimOn) Object.assign(mat, { selfillum: true, selfillummask: p.rimUrl, selfillumtint: new Vec(...rc) });
   const kids = [

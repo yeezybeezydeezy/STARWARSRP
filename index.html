@@ -125,9 +125,17 @@
 // data and full-resolution helmet textures live next to this page in the STARWARSRP repo;
 // opened as a local file it reads them from the GitHub Pages copy
 const BASE = location.protocol === 'file:' ? 'https://yeezybeezydeezy.github.io/STARWARSRP/' : '';
-const getJSON = n => fetch(BASE + n).then(r => { if (!r.ok) throw new Error(n + ' ' + r.status); return r.json(); });
+// a failed load says so on the page instead of leaving it blank
+let loadError = false;
+const showError = m => { if (loadError) return; loadError = true;   // the first failure is the cause
+  const b = document.getElementById('badge'); b.textContent = 'Could not load: ' + m + ' (refresh to retry)'; b.style.color = '#e8b54d'; };
+addEventListener('error', e => showError(e.message));
+addEventListener('unhandledrejection', e => showError(e.reason && e.reason.message || e.reason));
+// GitHub Pages sometimes answers a burst of requests with a 503: retry a few times before giving up
+const retry = async (f, n = 4) => { for (let i = 1; ; i++) { try { return await f(); } catch (e) { if (i >= n) throw e; await new Promise(r => setTimeout(r, 400 * i)); } } };
+const getJSON = n => retry(() => fetch(BASE + n).then(r => { if (!r.ok) throw new Error(n + ' ' + r.status); return r.json(); }));
 const [REG, TYPES] = await Promise.all(['data/regiments.json', 'data/helmets.json'].map(getJSON));   // REG: every model + helmet skin, TYPES: helmet shapes
-const loadImg = n => new Promise((res, rej) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => res(i); i.onerror = () => rej(new Error('could not load ' + n)); i.src = BASE + n; });
+const loadImg = n => retry(() => new Promise((res, rej) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => res(i); i.onerror = () => rej(new Error(n)); i.src = BASE + n; }));
 const regOf = p => REG.entries.find(e => e.id === p.regiment) || REG.entries.find(e => e.id === '501st_enlisted');
 const typeOf = e => TYPES.find(t => t.id === e.type);
 // each helmet shape has its own visor layout, mesh and hosted textures; the page loads the one the saved pick wears
@@ -365,7 +373,7 @@ async function init() {
   }
   g.thumb = { TW, TH, base: tb, vis: Int32Array.from(tvis), rim: Int32Array.from(trim) };
   G = g;
-  await initGL();
+  try { await initGL(); } catch (e) { showError(e.message); }   // settings and export still work without the 3D view
   buildUI(); requestAnimationFrame(tick);
 }
 
@@ -513,7 +521,7 @@ function tick() {
   if (key !== shaderKey) { shader = makeShader(P); shaderKey = key; }
   drawGL(t, factor, P.rimOn ? rc : [0, 0, 0], key);
   if (now - (tick.lastThumb || 0) > 0.07) { tick.lastThumb = now; drawThumbs(time); }
-  document.getElementById('badge').textContent = !S.alive ? 'KILLED' : (S.tSince * P.bootSpeed < 2.2 && P.powerOn) ? 'BOOTING' :
+  if (!loadError) document.getElementById('badge').textContent = !S.alive ? 'KILLED' : (S.tSince * P.bootSpeed < 2.2 && P.powerOn) ? 'BOOTING' :
     [S.talk && 'TALKING', S.type && 'TYPING', S.dark && 'DARK AREA'].filter(Boolean).join(' + ') || 'IDLE';
   requestAnimationFrame(tick);
 }
@@ -605,7 +613,7 @@ async function setHelmetTexture() {
 }
 
 function drawGL(t, factor, rimTint, key) {
-  const gl = GLS.gl; if (!gl) return;
+  const gl = GLS.gl; if (!gl || !GLS.det) return;   // 3D view not (fully) set up
   const cv = gl.canvas, dpr = Math.min(2, window.devicePixelRatio || 1), w = Math.round(cv.clientWidth * dpr), h = Math.round(cv.clientHeight * dpr);
   if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
   gl.viewport(0, 0, w, h);

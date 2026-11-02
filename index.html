@@ -36,6 +36,32 @@
   .hint { position: absolute; right: 10px; bottom: 8px; color: #7d8a9c; font-size: 11px; pointer-events: none; }
   .badge { position: absolute; left: 10px; top: 10px; background: rgba(10,14,22,.85); color: #a9cdf5; font-size: 11.5px; padding: 3px 8px; border-radius: 6px; }
   .row { display: flex; flex-wrap: wrap; gap: 6px; }
+  /* helmet picker */
+  .picker { position: relative; }
+  .pickbtn { width: 100%; display: flex; align-items: center; gap: 10px; text-align: left; padding: 8px 12px; }
+  .pickbtn .dot, .prow .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; border: 1px solid rgba(255,255,255,.25); }
+  .pickbtn .pk-main { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+  .pickbtn .pk-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pickbtn .pk-sub { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pickbtn .pk-caret { color: var(--muted); }
+  .pickpanel { position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 20; background: var(--panel); border: 1px solid #2c3647; border-radius: 12px;
+    box-shadow: 0 14px 40px rgba(0,0,0,.55); padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .pickpanel[hidden] { display: none; }
+  .pickpanel input[type=search] { width: 100%; background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 13.5px; }
+  .pickpanel input[type=search]:focus { outline: none; border-color: var(--accent); }
+  .pickfilters { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .picklist { max-height: min(52vh, 460px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: #2a3444 transparent; border-top: 1px solid var(--line); }
+  .pgroup { position: sticky; top: 0; background: var(--panel); color: #a9b6c8; font-size: 11.5px; letter-spacing: .8px; text-transform: uppercase; padding: 8px 4px 4px; display: flex; justify-content: space-between; }
+  .prow { display: flex; align-items: center; gap: 10px; padding: 6px 6px; border-radius: 8px; cursor: pointer; }
+  .prow:hover, .prow.kb { background: #1a2130; }
+  .prow.current { box-shadow: inset 0 0 0 1px var(--accent); }
+  .prow .pr-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .prow .pr-shape { font-size: 11px; color: #a9cdf5; background: rgba(78,148,230,.12); padding: 1px 8px; border-radius: 99px; white-space: nowrap; }
+  .prow .skins { display: flex; gap: 4px; }
+  .prow .skins button { padding: 1px 7px; font-size: 11.5px; border-radius: 6px; }
+  .prow .skins button.on { background: var(--accent2); border-color: var(--accent); }
+  .pempty { color: var(--muted); padding: 14px 6px; font-size: 13px; }
+  .pickfoot { display: flex; justify-content: space-between; gap: 8px; font-size: 11.5px; }
   button, .btn { appearance: none; border: 1px solid var(--line); background: var(--panel); color: var(--text); padding: 7px 11px; border-radius: 8px; cursor: pointer; font: inherit; font-size: 13px; }
   button:hover { border-color: #33405a; }
   button.on { background: var(--accent2); border-color: var(--accent); }
@@ -74,10 +100,18 @@
   <main class="center">
    <div class="stage">
     <div class="titlebar">
-      <h1>501st Visor Editor</h1>
+      <h1>Visor Editor</h1>
       <div class="sub">Look settings on the left, behaviour on the right.</div>
     </div>
-    <div class="row" style="align-items:center"><label for="regiment" class="sub" style="white-space:nowrap">Regiment &amp; model</label><select id="regiment" style="flex:1"></select></div>
+    <div class="picker" id="picker">
+      <button class="pickbtn" id="pickBtn" aria-haspopup="listbox"><span class="dot" id="pkDot"></span><span class="pk-main"><span class="pk-name" id="pkName"></span><span class="pk-sub" id="pkSub"></span></span><span class="pk-caret">Change helmet ▾</span></button>
+      <div class="pickpanel" id="pickPanel" hidden>
+        <input type="search" id="pickSearch" placeholder="Search: regiment, rank, name or helmet (e.g. 212th arf, cody, commando)" autocomplete="off">
+        <div class="pickfilters"><select id="pickGroup" aria-label="Regiment"></select><select id="pickShape" aria-label="Helmet type"></select></div>
+        <div class="picklist" id="pickList" role="listbox"></div>
+        <div class="pickfoot sub"><span id="pickCount"></span><span>↑ ↓ to move · Enter to pick · Esc to close</span></div>
+      </div>
+    </div>
     <div class="viewwrap"><canvas id="view"></canvas><div class="badge" id="badge">IDLE</div><div class="hint">drag to spin · wheel to zoom · double-click to reset</div></div>
     <div class="row" id="states">
       <button data-s="talk">Talking</button>
@@ -671,10 +705,8 @@ function drawThumbs(time) {
 // ---------------------------------------------------------------- UI
 function buildUI() {
   const sideL = document.getElementById('sideL'), sideR = document.getElementById('sideR'), galRoot = document.getElementById('gallery');
-  const qs = document.getElementById('exQuality'), rs = document.getElementById('regiment'), groups = {};
-  for (const e of REG.entries) (groups[e.group] = groups[e.group] || []).push(e);
-  rs.innerHTML = Object.entries(groups).map(([g, es]) => `<optgroup label="${g}">${es.map(e => `<option value="${e.id}">${g} · ${e.label}</option>`).join('')}</optgroup>`).join('')
-    + `<optgroup label="Not supported">${REG.unsupported.map(u => `<option disabled>${u}</option>`).join('')}</optgroup>`;
+  const qs = document.getElementById('exQuality');
+  buildPicker();
   qs.innerHTML = Object.entries(QUALITY).map(([k, q]) => `<option value="${k}">${q.label} · ${q.res}×${q.res / 2} · ${q.frames} frames</option>`).join('');
   const gal = document.createElement('div'); gal.className = 'card gallery';
   gal.innerHTML = `<h2>Presets</h2><p class="help">Click one to apply it. <span class="tag live">outfit</span> presets only change the outfit file. <span class="tag tex">texture</span> presets change the visor's look, so export the .vtf and host it.</p><div class="tiles"></div>`;
@@ -756,7 +788,7 @@ function refresh() {
   const texChanged = TEX_KEYS.some(k => String(P[k]) !== String(DEFAULTS[k])) || P.exQuality !== DEFAULTS.exQuality;
   const q = qual(P), qs = document.getElementById('exQuality');
   if (document.activeElement !== qs) qs.value = P.exQuality in QUALITY ? P.exQuality : 'high';
-  const rsel = document.getElementById('regiment'); if (document.activeElement !== rsel) rsel.value = regOf(P).id;
+  showPick();
   document.getElementById('exSize').textContent = mb(vtfBytes(q.res, q.frames));
   document.querySelectorAll('.tile').forEach(t => t.classList.toggle('active', t.dataset.name === activePreset));
   document.getElementById('texNote').classList.toggle('show', texChanged && P.texSource === 'url' && P.texUrl === HELMET.texUrl);
@@ -772,15 +804,77 @@ document.getElementById('states').addEventListener('click', e => {
 document.getElementById('btnSurprise').onclick = () => surprise();
 document.getElementById('exQuality').addEventListener('change', e => { P.exQuality = e.target.value; save(); refresh(); });
 const keepFiles = () => Object.fromEntries(['texUrl', 'texLocal', 'rimUrl', 'nmUrl', 'shieldUrl', 'outName', 'texSource', 'finish', 'exQuality', 'regiment'].map(k => [k, P[k]]));
-document.getElementById('regiment').addEventListener('change', e => {
-  P.regiment = e.target.value; const r = regOf(P);
+// ---------------------------------------------------------------- helmet picker
+// one row per model + helmet shape (its skins are buttons on the row), grouped by regiment, searchable and filterable
+const shapeName = e => typeOf(e).name;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+let ROWS = [], kbIndex = 0;
+function buildPicker() {
+  const rows = new Map();
+  for (const e of REG.entries) {
+    const k = e.model + '|' + e.type;
+    if (!rows.has(k)) rows.set(k, { group: e.group, role: e.role, shape: shapeName(e), color: e.color, skins: [],
+      hay: [e.group, e.role, shapeName(e), e.model.split('/').pop().replace('.mdl', '').replace(/_/g, ' ')].join(' ').toLowerCase() });
+    rows.get(k).skins.push(e);
+  }
+  ROWS = [...rows.values()];
+  const count = key => ROWS.reduce((m, r) => m.set(r[key], (m.get(r[key]) || 0) + 1), new Map());
+  const opts = (m, all) => `<option value="">${all}</option>` + [...m].map(([k, n]) => `<option value="${esc(k)}">${esc(k)} (${n})</option>`).join('');
+  const groups = count('group'), shapes = new Map([...count('shape')].sort((a, b) => b[1] - a[1]));
+  document.getElementById('pickGroup').innerHTML = opts(groups, 'All regiments');
+  document.getElementById('pickShape').innerHTML = opts(shapes, 'All helmet types');
+}
+function showPick() {
+  const e = regOf(P);
+  document.getElementById('pkDot').style.background = e.color;
+  document.getElementById('pkName').textContent = `${e.group} · ${e.role}`;
+  document.getElementById('pkSub').textContent = shapeName(e) + ' helmet' + (e.skins > 1 ? ` · skin ${e.skin} of ${e.skins}` : '');
+}
+function renderPicker() {
+  const q = document.getElementById('pickSearch').value.toLowerCase().split(/\s+/).filter(Boolean);
+  const g = document.getElementById('pickGroup').value, s = document.getElementById('pickShape').value, cur = regOf(P);
+  const hits = ROWS.filter(r => (!g || r.group === g) && (!s || r.shape === s) && q.every(w => r.hay.includes(w)));
+  kbIndex = Math.min(kbIndex, Math.max(0, hits.length - 1));
+  let html = '', last = null;
+  hits.forEach((r, i) => {
+    if (r.group !== last) { last = r.group; html += `<div class="pgroup"><span>${esc(r.group)}</span><span>${hits.filter(h => h.group === r.group).length}</span></div>`; }
+    const isCur = r.skins.some(e => e.id === cur.id);
+    html += `<div class="prow${isCur ? ' current' : ''}${i === kbIndex ? ' kb' : ''}" role="option" data-id="${r.skins[0].id}" data-i="${i}">`
+      + `<span class="dot" style="background:${r.color}"></span><span class="pr-name">${esc(r.role)}</span><span class="pr-shape">${esc(r.shape)}</span>`
+      + (r.skins.length > 1 ? `<span class="skins">${r.skins.map(e => `<button data-id="${e.id}" class="${e.id === cur.id ? 'on' : ''}" title="Skin ${e.skin}">${e.skin}</button>`).join('')}</span>` : '')
+      + '</div>';
+  });
+  document.getElementById('pickList').innerHTML = html || `<div class="pempty">No helmets match. Not supported: ${REG.unsupported.map(esc).join('; ')}.</div>`;
+  document.getElementById('pickCount').textContent = `${hits.length} of ${ROWS.length} models`;
+  const kb = document.querySelector('.prow.kb'); if (kb) kb.scrollIntoView({ block: 'nearest' });
+}
+const panel = document.getElementById('pickPanel');
+const openPicker = open => {
+  panel.hidden = !open;
+  if (open) { kbIndex = 0; renderPicker(); const f = document.getElementById('pickSearch'); f.focus(); f.select(); }
+};
+document.getElementById('pickBtn').onclick = () => openPicker(panel.hidden);
+['pickSearch', 'pickGroup', 'pickShape'].forEach(id => document.getElementById(id).addEventListener('input', () => { kbIndex = 0; renderPicker(); }));
+document.getElementById('pickList').addEventListener('click', ev => {
+  const b = ev.target.closest('[data-id]'); if (b) { openPicker(false); pickRegiment(b.dataset.id); }
+});
+document.getElementById('pickSearch').addEventListener('keydown', ev => {
+  const n = document.querySelectorAll('.prow').length;
+  if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') { ev.preventDefault(); kbIndex = Math.max(0, Math.min(n - 1, kbIndex + (ev.key === 'ArrowDown' ? 1 : -1))); renderPicker(); }
+  else if (ev.key === 'Enter') { const r = document.querySelector('.prow.kb'); if (r) { openPicker(false); pickRegiment(r.dataset.id); } }
+});
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && !panel.hidden) openPicker(false); });
+document.addEventListener('mousedown', ev => { if (!panel.hidden && !document.getElementById('picker').contains(ev.target)) openPicker(false); });
+
+function pickRegiment(id) {
+  P.regiment = id; const r = regOf(P);
   P.color = r.color; activePreset = null;
   if (r.type !== HELMET.id) {   // different helmet shape: its own hosted textures, then reload with its visor + mesh
     const t = typeOf(r); Object.assign(P, { texUrl: t.texUrl, rimUrl: t.rimUrl, nmUrl: t.nmUrl }); save(); location.reload(); return;
   }
   save(); setHelmetTexture(); refresh();
   flash(`${r.group} · ${r.label}: helmet paint and ${r.color} glow colour applied. A new colour needs the texture exported and hosted.`);
-});
+}
 document.getElementById('btnReset').onclick = () => { P = Object.assign({}, DEFAULTS, { regiment: P.regiment, color: regOf(P).color }); save(); refresh(); flash('Reset to the current (v3) visor.'); };
 document.getElementById('btnSaveJson').onclick = () => download(new Blob([JSON.stringify(P, null, 2)], { type: 'application/json' }), 'visor_settings.json');
 document.getElementById('btnLoadJson').onclick = () => document.getElementById('fileJson').click();

@@ -12,18 +12,52 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif; }
   html, body { height: 100%; }
-  .app { display: grid; grid-template-columns: minmax(290px, 1fr) minmax(440px, 1.55fr) minmax(290px, 1fr); gap: 16px; padding: 14px; height: 100vh; max-width: 1900px; margin: 0 auto; }
-  .side, .center { overflow-y: auto; display: flex; flex-direction: column; gap: 12px; min-width: 0; scrollbar-width: thin; scrollbar-color: #2a3444 transparent; }
-  .side { padding-right: 4px; }
-  .sidehead { position: sticky; top: 0; z-index: 2; background: var(--bg); padding: 2px 0 8px; font-size: 12px; letter-spacing: .9px; text-transform: uppercase; color: #a9b6c8; display: flex; align-items: center; gap: 8px; }
-  .stage { position: sticky; top: 0; z-index: 3; background: var(--bg); display: flex; flex-direction: column; gap: 10px; padding-bottom: 6px; }
-  .titlebar { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
-  @media (max-width: 1100px) {
-    .app { grid-template-columns: 1fr; height: auto; padding: 12px; }
-    .center { order: -1; overflow: visible; } .side { overflow: visible; } .stage { position: static; }
+  /* layout: top bar, sticky viewer left, tabbed panel right */
+  .topbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 14px; padding: 10px 20px;
+    background: rgba(12,15,21,.94); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+  .brand { font-weight: 700; font-size: 18px; letter-spacing: .3px; white-space: nowrap; display: flex; align-items: center; gap: 8px; }
+  .brand .logo { width: 22px; height: 12px; border-radius: 3px 3px 6px 6px; background: linear-gradient(90deg, var(--accent), #9cc8ff); box-shadow: 0 0 12px rgba(78,148,230,.6); }
+  .topbar .picker { flex: 1; max-width: 620px; }
+  .topbar .grow { flex: 1; }
+  .topbar progress { position: absolute; left: 0; right: 0; bottom: -1px; height: 3px; border-radius: 0; }
+  .app { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(440px, 1fr); gap: 22px; padding: 20px; max-width: 1840px; margin: 0 auto; align-items: start; }
+  .viewer { position: sticky; top: 78px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .panel { min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+  .tabs { position: sticky; top: 78px; z-index: 6; display: flex; gap: 4px; padding: 5px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 6px 18px rgba(0,0,0,.35); }
+  .tabs button { flex: 1; border: 0; background: transparent; padding: 9px 6px; border-radius: 9px; color: var(--muted); font-weight: 600; font-size: 13.5px; white-space: nowrap; }
+  .tabs button:hover { color: var(--text); background: #1a2130; }
+  .tabs button.on { background: var(--accent2); color: #fff; }
+  .tabs .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--warn); margin-left: 6px; vertical-align: middle; visibility: hidden; }
+  .tabs .dot.show { visibility: visible; }
+  .pane { display: none; flex-direction: column; gap: 14px; }
+  .pane.on { display: flex; }
+  .panehead { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; color: var(--muted); font-size: 13px; }
+  details.group > summary { list-style: none; display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+  details.group > summary::-webkit-details-marker { display: none; }
+  details.group > summary::after { content: '▾'; margin-left: auto; color: var(--muted); transition: transform .15s; }
+  details.group:not([open]) > summary::after { transform: rotate(-90deg); }
+  details.group > summary h2 { margin: 0; }
+  details.group[open] > summary { margin-bottom: 6px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .chip { padding: 6px 13px; border-radius: 99px; font-size: 12.5px; }
+  .chip.on { background: var(--accent2); border-color: var(--accent); color: #fff; }
+  .galsearch { flex: 1; min-width: 160px; background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 99px; padding: 6px 14px; font: inherit; font-size: 12.5px; }
+  .galsearch:focus { outline: none; border-color: var(--accent); }
+  .tile.hide { display: none; }
+  .okmsg { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 40; max-width: min(700px, 92vw); background: #132033; border: 1px solid var(--accent);
+    color: #dfe9f7; border-radius: 12px; padding: 11px 16px; font-size: 13px; box-shadow: 0 12px 34px rgba(0,0,0,.55); }
+  .okmsg:empty { display: none; }
+  @media (max-width: 1050px) {
+    .app { grid-template-columns: 1fr; padding: 12px; gap: 14px; }
+    .viewer { position: static; }
+    canvas#view { height: 48vh !important; }
+    .tabs { top: 64px; overflow-x: auto; }
+    .topbar { flex-wrap: wrap; padding: 10px 12px; gap: 10px; }
+    .topbar .picker { order: 3; flex-basis: 100%; max-width: none; }
   }
-  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
-  .tile { display: flex; flex-direction: column; gap: 5px; padding: 6px; text-align: left; border-radius: 10px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+  .tile { display: flex; flex-direction: column; gap: 6px; padding: 7px; text-align: left; border-radius: 12px; transition: border-color .12s, transform .12s; }
+  .tile:hover { transform: translateY(-1px); border-color: #3a4a66; }
   .tile canvas { width: 100%; border-radius: 6px; background: #000; display: block; }
   .tile.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
   .trow { display: flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%; }
@@ -31,7 +65,7 @@
   h1 { font-size: 17px; margin: 0; font-weight: 600; letter-spacing: .2px; }
   .sub { color: var(--muted); font-size: 12.5px; }
   .viewwrap { position: relative; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: #000; }
-  canvas#view { display: block; width: 100%; height: min(62vh, 640px); cursor: grab; touch-action: none; }
+  canvas#view { display: block; width: 100%; height: min(74vh, 800px); cursor: grab; touch-action: none; }
   canvas#view:active { cursor: grabbing; }
   .hint { position: absolute; right: 10px; bottom: 8px; color: #7d8a9c; font-size: 11px; pointer-events: none; }
   .badge { position: absolute; left: 10px; top: 10px; background: rgba(10,14,22,.85); color: #a9cdf5; font-size: 11.5px; padding: 3px 8px; border-radius: 6px; }
@@ -44,7 +78,7 @@
   .pickbtn .pk-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .pickbtn .pk-sub { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .pickbtn .pk-caret { color: var(--muted); }
-  .pickpanel { position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 20; background: var(--panel); border: 1px solid #2c3647; border-radius: 12px;
+  .pickpanel { position: absolute; left: 0; right: 0; min-width: min(520px, 92vw); top: calc(100% + 6px); z-index: 20; background: var(--panel); border: 1px solid #2c3647; border-radius: 12px;
     box-shadow: 0 14px 40px rgba(0,0,0,.55); padding: 10px; display: flex; flex-direction: column; gap: 8px; }
   .pickpanel[hidden] { display: none; }
   .pickpanel input[type=search] { width: 100%; background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 13.5px; }
@@ -76,7 +110,7 @@
   .tag.live { background: rgba(95,196,138,.15); color: var(--ok); }
   .tag.tex { background: rgba(232,181,77,.15); color: var(--warn); }
   .card p.help { margin: 0 0 8px; color: var(--muted); font-size: 12.5px; }
-  .ctl { display: grid; grid-template-columns: minmax(130px, 1fr) minmax(0, 1.3fr) 56px; gap: 10px; align-items: center; padding: 5px 0; border-top: 1px solid #1a2029; }
+  .ctl { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(0, 1.5fr) 56px; gap: 12px; align-items: center; padding: 7px 0; border-top: 1px solid #1a2029; }
   .ctl:first-of-type { border-top: 0; }
   .ctl label { color: #c9d2de; font-size: 13px; }
   .ctl .val { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 12.5px; cursor: pointer; }
@@ -98,15 +132,9 @@
 </style>
 </head>
 <body>
-<div class="app">
-  <aside class="side" id="sideL"><div class="sidehead">Visor look <span class="tag tex">needs new texture</span></div></aside>
-  <main class="center">
-   <div class="stage">
-    <div class="titlebar">
-      <h1>Visor Editor</h1>
-      <div class="sub">Look settings on the left, behaviour on the right.</div>
-    </div>
-    <div class="picker" id="picker">
+<header class="topbar">
+  <div class="brand"><span class="logo"></span>Visor Editor</div>
+  <div class="picker" id="picker">
       <button class="pickbtn" id="pickBtn" aria-haspopup="listbox"><span class="dot" id="pkDot"></span><span class="pk-main"><span class="pk-name" id="pkName"></span><span class="pk-sub" id="pkSub"></span></span><span class="pk-caret">Change helmet ▾</span></button>
       <div class="pickpanel" id="pickPanel" hidden>
         <input type="search" id="pickSearch" placeholder="Search: regiment, rank, name or helmet (e.g. 212th arf, cody, commando)" autocomplete="off">
@@ -115,6 +143,11 @@
         <div class="pickfoot sub"><span id="pickCount"></span><span>↑ ↓ to move · Enter to pick · Esc to close</span></div>
       </div>
     </div>
+  <button class="primary" id="btnOutfitTop">Download outfit</button>
+  <progress id="prog" value="0" max="1" style="display:none"></progress>
+</header>
+<div class="app">
+  <section class="viewer">
     <div class="viewwrap"><canvas id="view"></canvas><div class="badge" id="badge">IDLE</div><div class="hint">drag to spin · wheel to zoom · double-click to reset</div></div>
     <div class="row" id="states">
       <button data-s="talk">Talking</button>
@@ -123,7 +156,33 @@
       <button data-s="boot">Replay boot</button>
       <button data-s="kill">Kill</button>
     </div>
-   </div>
+  </section>
+  <section class="panel">
+    <nav class="tabs" role="tablist">
+      <button data-tab="presets" class="on">Presets</button>
+      <button data-tab="look">Look<span class="dot" id="dotLook"></span></button>
+      <button data-tab="effects">Effects<span class="dot" id="dotFx"></span></button>
+      <button data-tab="behaviour">Behaviour</button>
+      <button data-tab="export">Export</button>
+    </nav>
+    <div class="pane on" data-pane="presets">
+      <div class="chips" id="galChips">
+        <button class="chip on" data-cat="all">All</button>
+        <button class="chip" data-cat="fx">Special FX</button>
+        <button class="chip" data-cat="tex">Looks</button>
+        <button class="chip" data-cat="live">Outfit only</button>
+        <input type="search" class="galsearch" id="galSearch" placeholder="Search presets" autocomplete="off">
+      </div>
+      <div class="row">
+        <button id="btnSurprise">🎲 Surprise me</button>
+        <button id="btnReset">Reset to current (v3)</button>
+      </div>
+      <div id="gallery"></div>
+    </div>
+    <div class="pane" data-pane="look"><div class="panehead"><span>Baked into the visor texture. <b>Download outfit</b> builds and uploads it for you.</span><span class="tag tex">texture</span></div></div>
+    <div class="pane" data-pane="effects"><div class="panehead"><span>Animated effects, also baked into the visor texture. Mix as many as you like.</span><span class="tag tex">texture</span></div></div>
+    <div class="pane" data-pane="behaviour"><div class="panehead"><span>Outfit settings: no new texture needed.</span><span class="tag live">outfit only</span></div></div>
+    <div class="pane" data-pane="export">
     <div class="card">
       <h2>Export</h2>
       <div class="ctl" style="grid-template-columns:minmax(105px,auto) minmax(0,1fr) auto;border:0;padding-top:2px">
@@ -141,30 +200,26 @@
         <button class="primary" id="btnOutfit">Download outfit (.txt)</button>
         <button class="primary" id="btnVtf">Download visor texture (.vtf)</button>
       </div>
-      <progress id="prog" value="0" max="1" style="display:none"></progress>
-      <div class="okmsg" id="msg"></div>
       <div class="note" id="texNote" data-auto="You changed the visor's look. <b>Download outfit</b> builds and uploads the new visor texture for you first (takes a few seconds), and links it in the .txt.">You changed texture settings. Download the new <b>.vtf</b>, host it (see "Textures &amp; files"), and paste its link into <b>Visor texture link</b> before downloading the outfit, or other players won't see the change.</div>
       <details style="margin-top:8px"><summary>How to use the files</summary>
         <ol>
-          <li>Put the outfit <code>.txt</code> in <code>GarrysMod\garrysmod\data\pac3\</code> and load it from <b>pac → load</b>.</li>
-          <li>Outfit-only settings (green tag) need nothing else.</li>
-          <li>Texture settings (yellow tag): download the <code>.vtf</code>, upload it to your <code>gmodstuff</code> repo (or ask Claude to), copy its <code>raw.githubusercontent.com</code> link into <b>Visor texture link</b>, then download the outfit again.</li>
-          <li>To test a new texture before uploading: put the <code>.vtf</code> in <code>garrysmod\materials\pac_visor\</code>, set <b>Texture source</b> to <i>Local test file</i>. Only you will see it.</li>
+          <li>Click <b>Download outfit</b>. If you changed the visor's look, it builds and uploads the new texture first and links it for you.</li>
+          <li>Put the <code>.txt</code> in <code>GarrysMod\garrysmod\data\pac3\</code> and load it from <b>pac → load</b>, then click <b>Wear</b>.</li>
+          <li>Already have a PAC? Use <b>Merge into my PAC…</b> first: the visor goes into your helmet's own material and your custom paint stays.</li>
+          <li>To test a texture only you can see: download the <code>.vtf</code>, put it in <code>garrysmod\materials\pac_visor\</code> and set <b>Texture source</b> to <i>Local test file</i>.</li>
           <li>Changes still need staff approval before you wear them on the server.</li>
         </ol>
       </details>
     </div>
-    <div class="row">
-      <button id="btnSurprise">Surprise me</button>
-      <button id="btnReset">Reset to current (v3)</button>
-      <button id="btnSaveJson">Save settings</button>
-      <button id="btnLoadJson">Load settings</button>
-      <input type="file" id="fileJson" accept=".json" style="display:none">
+      <div class="row">
+        <button id="btnSaveJson">Save settings</button>
+        <button id="btnLoadJson">Load settings</button>
+        <input type="file" id="fileJson" accept=".json" style="display:none">
+      </div>
     </div>
-    <div id="gallery"></div>
-  </main>
-  <aside class="side" id="sideR"><div class="sidehead">Behaviour <span class="tag live">outfit only</span></div></aside>
+  </section>
 </div>
+<div class="okmsg" id="msg"></div>
 
 <script type="module">
 // data and full-resolution helmet textures live next to this page in the STARWARSRP repo;
@@ -277,6 +332,23 @@ const SCHEMA = [
     { k: 'hueAmt', label: 'Colour cycle', min: 0, max: 1, step: 0.01, def: 0 },
     { k: 'hueSpread', label: 'Colour cycle spread', min: 0, max: 2, step: 0.05, def: 0.6 },
   ]},
+  { id: 'fx2', title: 'More effects', tex: true, help: 'Whole-visor looks. Most use the glow colour; aurora and the synthwave sky also use the second colour (Look tab).', items: [
+    { k: 'kaleidoAmt', label: 'Kaleidoscope', min: 0, max: 1.2, step: 0.01, def: 0 },
+    { k: 'kaleidoFold', label: 'Kaleidoscope mirrors', min: 3, max: 12, step: 1, def: 8 },
+    { k: 'starsAmt', label: 'Starfield', min: 0, max: 1.2, step: 0.01, def: 0 },
+    { k: 'ecgAmt', label: 'Heart monitor', min: 0, max: 1.2, step: 0.01, def: 0 },
+    { k: 'ecgBeats', label: 'Heartbeats per loop', min: 1, max: 4, step: 1, def: 2 },
+    { k: 'auroraAmt', label: 'Aurora curtains', min: 0, max: 1.2, step: 0.01, def: 0 },
+    { k: 'crystalAmt', label: 'Kyber crystal', min: 0, max: 1.2, step: 0.01, def: 0 },
+    { k: 'crystalSize', label: 'Crystal size', min: 10, max: 60, step: 1, def: 26 },
+    { k: 'tickerAmt', label: 'Data ticker', min: 0, max: 1.2, step: 0.01, def: 0 },
+    { k: 'eyesAmt', label: 'Glowing eyes', min: 0, max: 1.5, step: 0.01, def: 0 },
+    { k: 'eyesSize', label: 'Eye size', min: 8, max: 50, step: 1, def: 26 },
+    { k: 'gridAmt', label: 'Synthwave grid', min: 0, max: 1.2, step: 0.01, def: 0 },
+    { k: 'blobAmt', label: 'Lava blobs', min: 0, max: 1.2, step: 0.01, def: 0 },
+    { k: 'vortexAmt', label: 'Spiral vortex', min: 0, max: 1.2, step: 0.01, def: 0 },
+    { k: 'vortexArms', label: 'Vortex arms', min: 1, max: 8, step: 1, def: 4 },
+  ]},
   { id: 'motion', title: 'Brightness & motion', help: 'Outfit settings: no new texture needed.', items: [
     { k: 'b0', label: 'Overall brightness', min: 0, max: 1.6, step: 0.01, def: 0.85 },
     { k: 'ba', label: 'Breathing amount', min: 0, max: 0.6, step: 0.01, def: 0.15 },
@@ -324,6 +396,8 @@ const SCHEMA = [
   ]},
 ];
 const TEX_KEYS = SCHEMA.filter(g => g.tex).flatMap(g => g.items.map(i => i.k));
+const FX_KEYS = SCHEMA.filter(g => g.id.startsWith('fx')).flatMap(g => g.items.map(i => i.k));
+const PANE_OF_TAB = { look: 'look', lines: 'look', glint: 'look', bars: 'effects', patterns: 'effects', glitch: 'effects', fx: 'effects', fx2: 'effects' };
 const texChangedOf = p => TEX_KEYS.some(k => String(p[k]) !== String(DEFAULTS[k])) || p.exQuality !== DEFAULTS.exQuality;
 // "Download outfit" uploads a changed visor texture to the STARWARSRP uploads branch (upload-worker/) and links it,
 // so nobody has to host anything. Empty = upload service not set up: host the .vtf by hand as before.
@@ -374,6 +448,20 @@ const PRESETS = {
   'Comms Equalizer': { eqAmt: 0.85, eqBars: 22, base: 0.08, lineAmt: 0, interf: 0, coreAmt: 0, haloAmt: 0, trailAmt: 0 },
   'Spectrum (event only)': { hueAmt: 1, hueSpread: 0.6, plasmaAmt: 0.35, plasmaScale: 55, base: 0.22, lineAmt: 0.08 },
   'Overload': { arcAmt: 0.7, arcRate: 0.6, plasmaAmt: 0.4, glitchAmt: 0.35, flickerAmt: 0.3, base: 0.2, coreAmt: 0.3 },
+  'Mandala': { kaleidoAmt: 0.85, kaleidoFold: 8, base: 0.1, lineAmt: 0, interf: 0, coreAmt: 0, haloAmt: 0, trailAmt: 0 },
+  'Starlight': { starsAmt: 1, base: 0.05, rimAmt: 0.15, lineAmt: 0, interf: 0, coreAmt: 0, haloAmt: 0, trailAmt: 0, reflAmt: 0.25, edgeAmt: 0.3 },
+  'Vital Signs': { ecgAmt: 1, ecgBeats: 2, base: 0.07, lineAmt: 0.12, lineSharp: 0.6, lineSpacing: 2.5, coreAmt: 0, haloAmt: 0, trailAmt: 0, interf: 0 },
+  'Aurora Veil': { auroraAmt: 1, color2: '#9CC8FF', base: 0.06, lineAmt: 0, interf: 0, coreAmt: 0, haloAmt: 0, trailAmt: 0, topShade: 0 },
+  'Kyber Crystal': { crystalAmt: 0.85, crystalSize: 24, base: 0.08, lineAmt: 0, interf: 0, coreAmt: 0.25, haloAmt: 0.1, trailAmt: 0 },
+  'Data Ticker': { tickerAmt: 1, base: 0.1, lineAmt: 0.2, lineSharp: 0.7, lineSpacing: 1.2, coreAmt: 0, haloAmt: 0, trailAmt: 0 },
+  'Predator Eyes': { eyesAmt: 1.1, eyesSize: 28, base: 0.02, rimAmt: 0.05, edgeAmt: 0.12, lineAmt: 0, interf: 0, reflAmt: 0.2, coreAmt: 0, haloAmt: 0, trailAmt: 0 },
+  'Synthwave': { gridAmt: 1, color2: '#4E94E6', base: 0.05, lineAmt: 0, interf: 0, coreAmt: 0, haloAmt: 0, trailAmt: 0, topShade: 0 },
+  'Lava Lamp': { blobAmt: 0.9, base: 0.06, lineAmt: 0, interf: 0, coreAmt: 0, haloAmt: 0, trailAmt: 0, reflAmt: 0.3 },
+  'Black Hole': { vortexAmt: 0.9, vortexArms: 3, starsAmt: 0.5, base: 0.03, lineAmt: 0, interf: 0, coreAmt: 0, haloAmt: 0, trailAmt: 0 },
+  'Neon Outline': { base: 0, rimAmt: 0, topShade: 0, edgeAmt: 1, reflAmt: 0, lineAmt: 0, interf: 0, coreAmt: 0.6, coreW: 0.01, haloAmt: 0, trailAmt: 0, glintCount: 2 },
+  'Blackout': { base: 0.03, rimAmt: 0.06, edgeAmt: 0.15, reflAmt: 0.35, lineAmt: 0, interf: 0, coreAmt: 0.12, haloAmt: 0.04, trailAmt: 0 },
+  'Shattered': { crystalAmt: 0.6, crystalSize: 18, glitchAmt: 0.45, flickerAmt: 0.35, noiseAmt: 0.12, base: 0.12, coreAmt: 0 },
+  'Deep Field': { starsAmt: 0.9, auroraAmt: 0.55, color2: '#16203A', base: 0.04, lineAmt: 0, interf: 0, coreAmt: 0, haloAmt: 0, trailAmt: 0 },
   'Radial Glow': { color2: '#4E94E6', gradAmt: 0.7, gradDir: 'radial', rimAmt: 0.5, lineAmt: 0.06, glintCount: 2, glintDir: 'rtl', coreAmt: 0.35 },
 };
 
@@ -566,7 +654,7 @@ function makeShader(p, D) {
       bar = p.scanBarAmt * Math.exp(-(((vn - (DATA.vtop - 0.08 + (DATA.vbot - DATA.vtop + 0.16) * tt)) / p.scanBarW) ** 2));
     }
     // ---- special effects (all off by default)
-    let fx = 0, fxHot = 0;   // fx: tinted with the visor colour, fxHot: near-white highlights
+    let fx = 0, fxHot = 0, fxAlt = 0;   // fx: tinted with the visor colour, fxHot: near-white highlights, fxAlt: second colour
     const rel = colBot[xt] > colTop[xt] ? clamp((yt - colTop[xt]) / (colBot[xt] - colTop[xt]), 0, 1) : clamp((vn - DATA.vtop) / (DATA.vbot - DATA.vtop), 0, 1);   // 0 top .. 1 bottom of the glass here
     if (p.plasmaAmt > 0) {   // flowing energy: warped noise drifting round a circle (seamless)
       const S = p.plasmaScale, a = TAU * t * p.plasmaSpeed;
@@ -633,6 +721,93 @@ function makeShader(p, D) {
       const dot = Math.exp(-((r / (2 + 1.5 * (0.5 + 0.5 * Math.sin(TAU * t * 4)))) ** 2));
       fxHot += p.reticleAmt * (ret1 + 0.7 * ret2 + tick + dot);
     }
+    if (p.kaleidoAmt > 0) {   // mirrored petals turning round the visor centre
+      const dx = (x - G.cx) * ASPECT, dy = y - G.cy, r = Math.hypot(dx, dy), fold = TAU / Math.round(p.kaleidoFold);
+      const a = Math.abs(mod(Math.atan2(dy, dx) + TAU * t, fold) - fold / 2);
+      const v = 0.5 + 0.5 * Math.cos(r / 9 - TAU * t * 3 + 9 * a + 2 * Math.sin(r / 23 + TAU * t));
+      fx += p.kaleidoAmt * v * v; fxHot += p.kaleidoAmt * Math.pow(v, 12) * 0.8;
+    }
+    if (p.starsAmt > 0) {   // twinkling stars on a grid of cells, plus one shooting star per loop
+      const cs = 9, cx = Math.floor(x / cs), cy = Math.floor(y / cs);
+      for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) {
+        const gx = cx + ox, gy = cy + oy, hs = hash2(gx, gy);
+        if (hs < 0.55) continue;
+        const sx = (gx + hash2(gx + 7.1, gy)) * cs, sy = (gy + hash2(gx, gy + 3.3)) * cs, dd = (x - sx) ** 2 + (y - sy) ** 2;
+        const tw = 0.35 + 0.65 * Math.pow(0.5 + 0.5 * Math.sin(TAU * (t * (1 + Math.floor(hs * 4)) + hash2(gy, gx))), 2);
+        fxHot += p.starsAmt * Math.exp(-dd / (0.6 + 1.6 * (hs - 0.55))) * tw;
+      }
+      const ss = (t - 0.35) / 0.18;
+      if (ss > 0 && ss < 1) {
+        const hx = W * (0.15 + 0.75 * ss), hy = H * (0.2 + 0.35 * ss), along = (hx - x) * 0.83 + (hy - y) * 0.55, off = Math.abs(-(hx - x) * 0.55 + (hy - y) * 0.83);
+        if (along > 0 && along < 70) fxHot += p.starsAmt * Math.exp(-((off / 1.3) ** 2)) * (1 - along / 70) * Math.sin(Math.PI * ss);
+      }
+      fx += p.starsAmt * 0.08;
+    }
+    if (p.ecgAmt > 0) {   // hospital heart monitor trace scrolling across the visor
+      const s = fract(un * 2 - t * Math.round(p.ecgBeats));
+      const g = (c, w) => Math.exp(-(((s - c) / w) ** 2));
+      const off = H * (0.04 * g(0.15, 0.03) - 0.06 * g(0.29, 0.008) + 0.34 * g(0.31, 0.01) - 0.1 * g(0.335, 0.01) + 0.08 * g(0.55, 0.05));
+      const dd = Math.abs(y - (G.wingY - off));
+      fxHot += p.ecgAmt * Math.exp(-((dd / 1.5) ** 2)); fx += p.ecgAmt * 0.45 * Math.exp(-dd / 7);
+    }
+    if (p.auroraAmt > 0) {   // aurora: a bright wavy lower edge with uneven rays rising from it, glow colour fading into the second colour
+      const a = TAU * t, n = fbm(x / 90 + 1.2 * Math.cos(a), 0.8 * Math.sin(a) + 3.1), n2 = fbm(x / 7 + 0.7 * Math.cos(a), 0.7 * Math.sin(a) + 7.7);
+      const edge = 0.45 + 0.4 * n, d = edge - rel;   // d > 0: above the edge
+      const band = d < 0 ? Math.exp(-((d / 0.05) ** 2)) : Math.exp(-d / (0.18 + 0.3 * n2));
+      const rays = 0.25 + 0.75 * Math.pow(n2, 1.6), lift = clamp(d / 0.4, 0, 1);
+      fx += p.auroraAmt * band * rays * (1.3 - lift); fxAlt += p.auroraAmt * band * rays * lift * 1.3; fxHot += p.auroraAmt * 0.35 * Math.exp(-((d / 0.025) ** 2)) * rays;
+    }
+    if (p.crystalAmt > 0) {   // kyber crystal: glowing cell walls (Voronoi) with facets catching the light in turn
+      const S = p.crystalSize, gx0 = Math.floor(x * ASPECT / S), gy0 = Math.floor(y / S);
+      let d1 = 1e9, d2 = 1e9, id1 = 0;
+      for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) {
+        const gx = gx0 + ox, gy = gy0 + oy, px = (gx + hash2(gx, gy)) * S, py = (gy + hash2(gy + 1.7, gx)) * S;
+        const dd = Math.hypot(x * ASPECT - px, y - py);
+        if (dd < d1) { d2 = d1; d1 = dd; id1 = hash2(gx * 1.3, gy * 2.1); } else if (dd < d2) d2 = dd;
+      }
+      const facet = Math.pow(0.5 + 0.5 * Math.sin(TAU * (t * (1 + Math.floor(id1 * 3)) + id1 * 5)), 3);
+      fx += p.crystalAmt * (0.2 + 0.55 * facet) * (0.6 + 0.4 * (d1 / S));
+      fxHot += p.crystalAmt * Math.exp(-((d2 - d1) / 1.4)) * (0.5 + 0.5 * facet);
+    }
+    if (p.tickerAmt > 0) {   // two rows of blocky glyphs scrolling sideways (one full screen per loop)
+      for (let row = 0; row < 2; row++) {
+        const top = G.wingY - 14 + row * 16, ly = y - top;
+        if (ly < 0 || ly >= 10) continue;
+        const cw = 8, len = Math.round(W / cw), sx = mod(x + (row ? -1 : 1) * t * W, W), ci = Math.floor(sx / cw) % len, bx = Math.floor((sx % cw) / 2), by = Math.floor(ly / 2);
+        if (bx < 3 && hash2(ci * 3.1 + row * 50, bx * 7 + by * 13) > 0.45 && hash2(ci, row) > 0.15) { fxHot += p.tickerAmt * 0.9; fx += p.tickerAmt * 0.3; }
+      }
+    }
+    if (p.eyesAmt > 0) {   // two eye-lights on the visor wings, slowly pulsing, with a soft halo
+      for (const ex of [W * 0.2, W * 0.8]) {
+        const dd = Math.hypot((x - ex) * ASPECT, y - G.wingY), R = p.eyesSize * (0.92 + 0.08 * Math.sin(TAU * t * 2));
+        fx += p.eyesAmt * (Math.exp(-((dd / R) ** 2)) + 0.35 * Math.exp(-((dd / (R * 2.4)) ** 2))); fxHot += p.eyesAmt * Math.exp(-((dd / (R * 0.4)) ** 2));
+      }
+    }
+    if (p.gridAmt > 0) {   // synthwave: a glowing grid floor racing towards you under a horizon glow, in every part of the visor
+      const hz = 0.4;
+      if (rel > hz) {
+        const q = (rel - hz) / (1 - hz) + 0.06, depth = 1 / q;
+        const lx = Math.abs(fract((x - G.cx) * ASPECT / 34 / q) - 0.5), lz = Math.abs(fract(depth * 0.5 - t * 4) - 0.5), w = 0.06 + 0.05 * q;
+        const lines = Math.max(Math.exp(-(((0.5 - lx) / w) ** 2)), Math.exp(-(((0.5 - lz) / (w * 1.4)) ** 2)));
+        const fade = clamp((q - 0.06) * 3.5, 0, 1);   // lines crowd together at the horizon: fade them out there
+        fx += p.gridAmt * lines * fade * clamp(q * 1.6, 0.25, 1.2); fxHot += p.gridAmt * lines * fade * 0.3;
+      } else fxAlt += p.gridAmt * 1.2 * Math.exp(-(hz - rel) / 0.12);
+    }
+    if (p.blobAmt > 0) {   // lava lamp: soft blobs drifting on looping paths and merging
+      let field = 0;
+      for (let b = 0; b < 6; b++) {
+        const bx = W * (0.5 + 0.42 * Math.sin(TAU * (t * (1 + b % 3) + b * 0.37))), by = H * (DATA.vtop + (DATA.vbot - DATA.vtop) * (0.5 + 0.45 * Math.cos(TAU * (t * (1 + (b + 1) % 2) + b * 0.21))));
+        const r = 26 + 10 * h1(b * 3.3);
+        field += (r * r) / ((x - bx) ** 2 * 0.5 + (y - by) ** 2 + 1);
+      }
+      const inside = clamp((field - 0.8) / 0.6, 0, 1);
+      fx += p.blobAmt * inside * (0.7 + 0.3 * Math.min(field / 3, 1)); fxHot += p.blobAmt * Math.exp(-(((field - 1.05) / 0.08) ** 2)) * 0.8;
+    }
+    if (p.vortexAmt > 0) {   // spiral arms turning into the visor centre
+      const dx = (x - G.cx) * ASPECT, dy = y - G.cy, r = Math.hypot(dx, dy) + 1, a = Math.atan2(dy, dx);
+      const v = 0.5 + 0.5 * Math.cos(Math.round(p.vortexArms) * a + 22 * Math.log(r) * 0.35 - TAU * t * 2);
+      fx += p.vortexAmt * v * v * clamp(r / 25, 0.3, 1); fxHot += p.vortexAmt * Math.exp(-r / 10) * 1.2;
+    }
     if (p.hueAmt > 0) { const hb = hueRotate(BASE, TAU * p.hueAmt * fract(t + un * p.hueSpread)); BASE[0] = hb[0]; BASE[1] = hb[1]; BASE[2] = hb[2]; }
     // reflection
     const d = D.diag[i];
@@ -652,7 +827,7 @@ function makeShader(p, D) {
       const glass = 0.5 * BASE[k] + 0.5 * GW[k], coreC = 0.45 * BASE[k] + 0.55 * CW[k];
       out[k] = clamp((glow * BASE[k] + e * EDGE[k] + r * glass + core * coreC + halo * BASE[k] + trail * BASE[k]
         + bar * (0.5 * BASE[k] + 0.5 * CW[k]) + wave * coreC + ring * BASE[k] + hex * BASE[k]
-        + fx * BASE[k] + fxHot * coreC) * gm * m, 0, 1);
+        + fx * BASE[k] + fxHot * coreC + fxAlt * B2[k]) * gm * m, 0, 1);
     }
   };
 }
@@ -822,7 +997,9 @@ function applyPreset(name) {
 }
 function drawThumbs(time) {
   const T = G.thumb, A = G.alb, px3 = new Float32Array(3);
+  if (!document.querySelector('.pane[data-pane="presets"]').classList.contains('on')) return;
   for (const th of thumbs) {
+    if (th.tile.classList.contains('hide')) continue;
     const q = th.P, img = th.img, o = img.data;
     o.set(T.base);
     const fx = qual(q).frames, t = (Math.floor(time * q.fps * fx / 48) % fx) / fx;
@@ -845,28 +1022,31 @@ function drawThumbs(time) {
 
 // ---------------------------------------------------------------- UI
 function buildUI() {
-  const sideL = document.getElementById('sideL'), sideR = document.getElementById('sideR'), galRoot = document.getElementById('gallery');
+  const pane = n => document.querySelector(`.pane[data-pane="${n}"]`), galRoot = document.getElementById('gallery');
+  const PANE_OF = Object.assign({ files: 'export' }, PANE_OF_TAB);
   const qs = document.getElementById('exQuality');
   buildPicker();
   qs.innerHTML = Object.entries(QUALITY).map(([k, q]) => `<option value="${k}">${q.label} · ${q.res}×${q.res / 2} · ${q.frames} frames</option>`).join('');
   const gal = document.createElement('div'); gal.className = 'card gallery';
-  gal.innerHTML = `<h2>Presets</h2><p class="help">Click one to apply it. <span class="tag live">outfit</span> presets only change the outfit file. <span class="tag tex">texture</span> presets change the visor's look, so export the .vtf and host it.</p><div class="tiles"></div>`;
+  gal.innerHTML = `<p class="help">Click one to apply it. <span class="tag live">outfit</span> presets only change the outfit; <span class="tag tex">texture</span> ones change the visor itself (Download outfit uploads it for you).</p><div class="tiles"></div>`;
   const tiles = gal.querySelector('.tiles'); thumbs = [];
   for (const [name, pr] of Object.entries(PRESETS)) {
     const tex = Object.keys(pr).some(k => TEX_KEYS.includes(k));
     const tile = document.createElement('button'); tile.className = 'tile'; tile.dataset.name = name;
+    tile.dataset.cat = Object.keys(pr).some(k => FX_KEYS.includes(k)) ? 'fx' : tex ? 'tex' : 'live';
     tile.innerHTML = `<canvas width="${G.thumb.TW}" height="${G.thumb.TH}"></canvas><span class="trow"><span class="tname">${name}</span><span class="tag ${tex ? 'tex' : 'live'}">${tex ? 'texture' : 'outfit'}</span></span>`;
     tile.onclick = () => applyPreset(name);
     tiles.appendChild(tile);
     const q = Object.assign({}, DEFAULTS, pr), ctx = tile.querySelector('canvas').getContext('2d');
-    thumbs.push({ P: q, sh: makeShader(q), ctx, img: ctx.createImageData(G.thumb.TW, G.thumb.TH) });
+    thumbs.push({ P: q, sh: makeShader(q), ctx, img: ctx.createImageData(G.thumb.TW, G.thumb.TH), tile });
   }
   galRoot.innerHTML = ''; galRoot.appendChild(gal);
-  for (const g of SCHEMA) {
-    const card = document.createElement('div'); card.className = 'card';
-    card.innerHTML = `<h2>${g.title}</h2><p class="help">${g.help}</p>`;
+  const FIRST = { fx2: 0, fx: 1 };   // newest effects at the top of the Effects tab
+  for (const g of [...SCHEMA].sort((a, b) => (FIRST[a.id] ?? 9) - (FIRST[b.id] ?? 9))) {
+    const card = document.createElement('details'); card.className = 'card group'; card.open = g.id !== 'files';
+    card.innerHTML = `<summary><h2>${g.title}</h2></summary><p class="help">${g.help}</p>`;
     for (const it of g.items) card.appendChild(control(it));
-    (g.tex ? sideL : sideR).appendChild(card);
+    pane(PANE_OF[g.id] || 'behaviour').appendChild(card);
   }
   refresh();
 }
@@ -930,6 +1110,9 @@ function refresh() {
   const q = qual(P), qs = document.getElementById('exQuality');
   if (document.activeElement !== qs) qs.value = P.exQuality in QUALITY ? P.exQuality : 'high';
   showPick(); showMerge();
+  const lookChanged = SCHEMA.filter(g => g.tex && PANE_OF_TAB[g.id] === 'look').some(g => g.items.some(i => String(P[i.k]) !== String(DEFAULTS[i.k])));
+  const fxChanged = SCHEMA.filter(g => g.tex && PANE_OF_TAB[g.id] === 'effects').some(g => g.items.some(i => String(P[i.k]) !== String(DEFAULTS[i.k])));
+  document.getElementById('dotLook').classList.toggle('show', lookChanged); document.getElementById('dotFx').classList.toggle('show', fxChanged);
   document.getElementById('exSize').textContent = mb(vtfBytes(q.res, q.frames));
   document.querySelectorAll('.tile').forEach(t => t.classList.toggle('active', t.dataset.name === activePreset));
   document.getElementById('texNote').classList.toggle('show', texChanged && P.texSource === 'url' && (UPLOAD_URL ? autoTex(P) : P.texUrl === HELMET.texUrl));
@@ -943,6 +1126,22 @@ document.getElementById('states').addEventListener('click', e => {
   S[s] = !S[s]; e.target.classList.toggle('on', S[s]);
 });
 document.getElementById('btnSurprise').onclick = () => surprise();
+document.querySelector('.tabs').addEventListener('click', e => {
+  const b = e.target.closest('button[data-tab]'); if (!b) return;
+  document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('.pane').forEach(x => x.classList.toggle('on', x.dataset.pane === b.dataset.tab));
+});
+let galCat = 'all';
+const filterGallery = () => {
+  const q = document.getElementById('galSearch').value.toLowerCase().trim();
+  document.querySelectorAll('.tile').forEach(t => t.classList.toggle('hide', (galCat !== 'all' && t.dataset.cat !== galCat) || (q && !t.dataset.name.toLowerCase().includes(q))));
+};
+document.getElementById('galChips').addEventListener('click', e => {
+  const c = e.target.closest('.chip'); if (!c) return;
+  galCat = c.dataset.cat; document.querySelectorAll('#galChips .chip').forEach(x => x.classList.toggle('on', x === c)); filterGallery();
+});
+document.getElementById('galSearch').addEventListener('input', filterGallery);
+document.getElementById('btnOutfitTop').onclick = () => document.getElementById('btnOutfit').click();
 document.getElementById('exQuality').addEventListener('change', e => { P.exQuality = e.target.value; save(); refresh(); });
 const keepFiles = () => Object.fromEntries(['texUrl', 'texLocal', 'rimUrl', 'nmUrl', 'shieldUrl', 'outName', 'texSource', 'finish', 'exQuality', 'regiment'].map(k => [k, P[k]]));
 // ---------------------------------------------------------------- helmet picker

@@ -132,7 +132,7 @@
       </div>
       <progress id="prog" value="0" max="1" style="display:none"></progress>
       <div class="okmsg" id="msg"></div>
-      <div class="note" id="texNote">You changed texture settings. Download the new <b>.vtf</b>, host it (see "Textures &amp; files"), and paste its link into <b>Visor texture link</b> before downloading the outfit, or other players won't see the change.</div>
+      <div class="note" id="texNote" data-auto="You changed the visor's look. <b>Download outfit</b> builds and uploads the new visor texture for you first (takes a few seconds), and links it in the .txt.">You changed texture settings. Download the new <b>.vtf</b>, host it (see "Textures &amp; files"), and paste its link into <b>Visor texture link</b> before downloading the outfit, or other players won't see the change.</div>
       <details style="margin-top:8px"><summary>How to use the files</summary>
         <ol>
           <li>Put the outfit <code>.txt</code> in <code>GarrysMod\garrysmod\data\pac3\</code> and load it from <b>pac → load</b>.</li>
@@ -292,6 +292,13 @@ const SCHEMA = [
   ]},
 ];
 const TEX_KEYS = SCHEMA.filter(g => g.tex).flatMap(g => g.items.map(i => i.k));
+const texChangedOf = p => TEX_KEYS.some(k => String(p[k]) !== String(DEFAULTS[k])) || p.exQuality !== DEFAULTS.exQuality;
+// "Download outfit" uploads a changed visor texture to the STARWARSRP uploads branch (upload-worker/) and links it,
+// so nobody has to host anything. Empty = upload service not set up: host the .vtf by hand as before.
+const UPLOAD_URL = '';
+const UPLOAD_RAW = 'https://raw.githubusercontent.com/yeezybeezydeezy/STARWARSRP/uploads/';
+// only links the editor manages itself get replaced; a link someone pasted in is left alone
+const autoTex = p => p.texSource === 'url' && (TYPES.some(t => t.texUrl === p.texUrl) || p.texUrl.startsWith(UPLOAD_RAW));
 const DEFAULTS = Object.fromEntries(SCHEMA.flatMap(g => g.items.map(i => [i.k, i.def])));
 DEFAULTS.exQuality = 'high';
 DEFAULTS.regiment = '501st_enlisted';
@@ -786,13 +793,13 @@ function refresh() {
     if (val) val.textContent = it.type === 'color' ? String(v).toUpperCase() : it.type === 'bool' ? (v ? 'on' : 'off') : it.type === 'select' ? '' : (+v).toFixed(it.step < 0.01 ? 3 : it.step < 1 ? 2 : 0);
     row.classList.toggle('changed', String(v) !== String(it.def));
   }
-  const texChanged = TEX_KEYS.some(k => String(P[k]) !== String(DEFAULTS[k])) || P.exQuality !== DEFAULTS.exQuality;
+  const texChanged = texChangedOf(P);
   const q = qual(P), qs = document.getElementById('exQuality');
   if (document.activeElement !== qs) qs.value = P.exQuality in QUALITY ? P.exQuality : 'high';
   showPick();
   document.getElementById('exSize').textContent = mb(vtfBytes(q.res, q.frames));
   document.querySelectorAll('.tile').forEach(t => t.classList.toggle('active', t.dataset.name === activePreset));
-  document.getElementById('texNote').classList.toggle('show', texChanged && P.texSource === 'url' && P.texUrl === HELMET.texUrl);
+  document.getElementById('texNote').classList.toggle('show', texChanged && P.texSource === 'url' && (UPLOAD_URL ? autoTex(P) : P.texUrl === HELMET.texUrl));
   document.querySelector('.ctl[data-k="rimColor"]').style.opacity = P.rimFollow ? 0.45 : 1;
 }
 
@@ -977,7 +984,31 @@ function buildOutfit(p) {
         phongalbedotint: true, rimlight: true, rimlightboost: f(2), rimlightexponent: 0.2 })]));
   return outfit.map((x, i) => `[${i + 1}] = ${luaEnc(x, 0)},\n`).join('');
 }
-document.getElementById('btnOutfit').onclick = () => {
+if (UPLOAD_URL) { const n = document.getElementById('texNote'); n.innerHTML = n.dataset.auto; }
+// changed look: build the texture, upload it once per look, point the outfit at it; stock look: stock link
+async function linkTexture(btn) {
+  if (!UPLOAD_URL || !autoTex(P)) return true;
+  if (!texChangedOf(P)) { P.texUrl = HELMET.texUrl; save(); return true; }
+  const sig = JSON.stringify([HELMET.id, P.exQuality, ...TEX_KEYS.map(k => P[k])]);
+  if (P.uploadSig === sig && P.texUrl.startsWith(UPLOAD_RAW)) return true;
+  const prog = document.getElementById('prog');
+  btn.disabled = true; prog.style.display = 'block'; prog.value = 0;
+  try {
+    flash('Building your visor texture…');
+    const blob = await buildVTF(Object.assign({}, P), v => prog.value = v * 0.85);
+    flash('Uploading your visor texture…');
+    const r = await fetch(UPLOAD_URL, { method: 'POST', body: blob, headers: { 'content-type': 'application/octet-stream' } });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.url) throw new Error(j.error || 'upload service answered ' + r.status);
+    P.texUrl = j.url; P.uploadSig = sig; save(); refresh(); prog.value = 1;
+    return true;
+  } catch (err) {
+    flash(`Upload failed (${err.message}). Nothing was saved: try again, or download the .vtf and host it yourself.`);
+    return false;
+  } finally { btn.disabled = false; prog.style.display = 'none'; }
+}
+document.getElementById('btnOutfit').onclick = async e => {
+  if (!await linkTexture(e.target)) return;
   const name = (P.outName || '501st_glowing_visor').replace(/[^\w\-]+/g, '_') + '.txt';
   download(new Blob([buildOutfit(P)], { type: 'text/plain' }), name);
   flash('Saved ' + name + ' — put it in garrysmod\\data\\pac3\\ and load it from pac → load.');

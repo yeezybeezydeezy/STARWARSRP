@@ -384,13 +384,10 @@ async function init() {
   const SW = lit.width, SH = lit.height;
   const g = { SW, SH, lit: lit.data, alb: alb.data, rimp: ch(rimp) };
   // one detail-texture data set per export resolution (256 is box-downsampled from the 512 set)
-  // un/vn run along the helmet (across / down the visor as Phase 2's do), whichever way the texture lays the visor out
-  const O = DATA.orient || { swap: false, su: 1, sv: 1 };
-  const orient = (u, v) => { const a = O.swap ? v : u, b = O.swap ? u : v; return [O.su > 0 ? a : 1 - a, O.sv > 0 ? b : 1 - b]; };
   function detail(w, h, m, r, e) {
     const d = { W: w, H: h, mask: m, rim: r, edge: e, un: new Float32Array(w * h), vn: new Float32Array(w * h), shadeRaw: new Float32Array(w * h), diag: new Float32Array(w * h) };
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-      const i = y * w + x, [un, vn] = orient(x / w, y / h);
+      const i = y * w + x, un = x / w, vn = y / h;
       d.un[i] = un; d.vn[i] = vn; d.diag[i] = un + vn * 0.35;
       d.shadeRaw[i] = Math.min(1, Math.max(0, (vn - DATA.vtop) / (DATA.vbot - DATA.vtop)));
     }
@@ -412,9 +409,8 @@ async function init() {
   g.rimPix = Int32Array.from(rimPix);
   // visor centre (sonar rings) and the middle of the left wing's height (waveform baseline)
   let sx = 0, sy = 0, sw = 0, wy = 0, ww = 0;
-  for (let i = 0; i < W * H; i++) {
-    const mm = g.mask[i]; if (mm <= 0.5) continue;
-    const x = g.D[512].un[i] * W, y = g.D[512].vn[i] * H;   // in helmet-oriented 512x256 space, like the effects
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const mm = g.mask[y * W + x]; if (mm <= 0.5) continue;
     sx += x * mm; sy += y * mm; sw += mm; if (x < W * 0.3) { wy += y * mm; ww += mm; }
   }
   g.cx = sx / sw; g.cy = sy / sw; g.wingY = wy / ww;
@@ -466,8 +462,7 @@ function makeShader(p, D) {
   const BASE = [0, 0, 0];
   return function (i, yt, t, out) {
     const m = D.mask[i]; if (m <= 0) { out[0] = out[1] = out[2] = 0; return; }
-    const un = D.un[i], vn = D.vn[i], x = un * 512, y = vn * 256, xt = Math.round(x / sx), f = Math.round(t * FX) % FX;
-    yt = Math.round(y / sy);   // effects are laid out along the helmet, not the texture
+    const xt = i - yt * D.W, x = xt * sx, y = yt * sy, un = D.un[i], vn = D.vn[i], f = Math.round(t * FX) % FX;
     // colour blend
     let w = 0;
     if (p.gradAmt > 0) w = p.gradAmt * (p.gradDir === 'vertical' ? D.shadeRaw[i] : p.gradDir === 'horizontal' ? un : clamp(Math.hypot((x - G.cx) * ASPECT, y - G.cy) / (rmax * 0.6), 0, 1));

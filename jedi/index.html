@@ -53,7 +53,7 @@
 const BASE = location.href.replace(/[^/]*$/, '');                      // jedi/ on the site
 const RAW = 'https://yeezybeezydeezy.github.io/STARWARSRP/';
 const UPLOAD_URL = 'https://visor-upload.yeezybeezydeezy.workers.dev/upload';
-const EYES_URL = RAW + 'rodian/eyes_rodian_anim.vtf';
+const EYES_URL = RAW + 'rodian/eyes_rodian_anim_24fps.vtf';
 const N = 1024;
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const hex2rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
@@ -276,7 +276,7 @@ function outfitTxt(outfitUrl, headUrl) {
   if (S.eyes) mats.push(part('material_3d', 'animated eyes', { MaterialOverride: 'eyes_rodian', basetexture: 'wgcwrp/heads/eyes_rodian',
     bumpmap: 'wgcwrp/heads/eyes_rodian_n', color2: vec([0.9, 0.9, 0.9]), halflambert: true, model: true, phong: true, phongboost: 1.7,
     phongfresnelranges: vec([1, 0.8, 0]), phongalbedotint: true, detail: EYES_URL, detailblendmode: { lua: '5' }, detailblendfactor: 1, detailscale: 1, detailframe: { lua: '0' } },
-    [part('proxy', 'eye animation', { VariableName: 'detailframe', Additive: true, Expression: 'ftime()*12' })]));
+    [part('proxy', 'eye animation', { VariableName: 'detailframe', Additive: true, Expression: 'ftime()*24' })]));
   const outfit = [part('group', 'jedi outfit', { OwnerName: 'self' }, [part('entity2', 'jedi', {}, mats)])];
   return outfit.map((x, i) => `[${i + 1}] = ${lua(x, 0)},\n`).join('');
 }

@@ -295,7 +295,7 @@ const TEX_KEYS = SCHEMA.filter(g => g.tex).flatMap(g => g.items.map(i => i.k));
 const texChangedOf = p => TEX_KEYS.some(k => String(p[k]) !== String(DEFAULTS[k])) || p.exQuality !== DEFAULTS.exQuality;
 // "Download outfit" uploads a changed visor texture to the STARWARSRP uploads branch (upload-worker/) and links it,
 // so nobody has to host anything. Empty = upload service not set up: host the .vtf by hand as before.
-const UPLOAD_URL = '';
+const UPLOAD_URL = 'https://visor-upload.yeezybeezydeezy.workers.dev/upload';
 const UPLOAD_RAW = 'https://raw.githubusercontent.com/yeezybeezydeezy/STARWARSRP/uploads/';
 // only links the editor manages itself get replaced; a link someone pasted in is left alone
 const autoTex = p => p.texSource === 'url' && (TYPES.some(t => t.texUrl === p.texUrl) || p.texUrl.startsWith(UPLOAD_RAW));

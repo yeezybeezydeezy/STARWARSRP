@@ -167,7 +167,8 @@ addEventListener('error', e => showError(e.message));
 addEventListener('unhandledrejection', e => showError(e.reason && e.reason.message || e.reason));
 // GitHub Pages sometimes answers a burst of requests with a 503: retry a few times before giving up
 const retry = async (f, n = 4) => { for (let i = 1; ; i++) { try { return await f(); } catch (e) { if (i >= n) throw e; await new Promise(r => setTimeout(r, 400 * i)); } } };
-const getJSON = n => retry(() => fetch(BASE + n).then(r => { if (!r.ok) throw new Error(n + ' ' + r.status); return r.json(); }));
+// data files change between deploys: always revalidate (cheap 304) instead of trusting GitHub's 10-minute cache
+const getJSON = n => retry(() => fetch(BASE + n, { cache: 'no-cache' }).then(r => { if (!r.ok) throw new Error(n + ' ' + r.status); return r.json(); }));
 const [REG, TYPES] = await Promise.all(['data/regiments.json', 'data/helmets.json'].map(getJSON));   // REG: every model + helmet skin, TYPES: helmet shapes
 const loadImg = n => retry(() => new Promise((res, rej) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => res(i); i.onerror = () => rej(new Error(n)); i.src = BASE + n; }));
 const regOf = p => REG.entries.find(e => e.id === p.regiment) || REG.entries.find(e => e.id === '501st_enlisted');

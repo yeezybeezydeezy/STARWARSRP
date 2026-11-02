@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Visor Editor</title>
+<link rel="icon" type="image/png" href="img/favicon.png">
 <style>
   :root {
     --bg: #0c0f15; --panel: #141922; --panel2: #10141c; --line: #222a37; --text: #dfe5ee; --muted: #8592a5;
@@ -16,7 +17,7 @@
   .topbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 14px; padding: 10px 20px;
     background: rgba(12,15,21,.94); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
   .brand { font-weight: 700; font-size: 18px; letter-spacing: .3px; white-space: nowrap; display: flex; align-items: center; gap: 8px; }
-  .brand .logo { width: 22px; height: 12px; border-radius: 3px 3px 6px 6px; background: linear-gradient(90deg, var(--accent), #9cc8ff); box-shadow: 0 0 12px rgba(78,148,230,.6); }
+  .brand .logo { width: 34px; height: 34px; margin: -4px 0; }
   .topbar .picker { flex: 1; max-width: 620px; }
   .topbar .grow { flex: 1; }
   .topbar progress { position: absolute; left: 0; right: 0; bottom: -1px; height: 3px; border-radius: 0; }
@@ -133,7 +134,7 @@
 </head>
 <body>
 <header class="topbar">
-  <div class="brand"><span class="logo"></span>Visor Editor</div>
+  <div class="brand"><img class="logo" src="img/helmet.png" alt="">Visor Editor</div>
   <div class="picker" id="picker">
       <button class="pickbtn" id="pickBtn" aria-haspopup="listbox"><span class="dot" id="pkDot"></span><span class="pk-main"><span class="pk-name" id="pkName"></span><span class="pk-sub" id="pkSub"></span></span><span class="pk-caret">Change helmet ▾</span></button>
       <div class="pickpanel" id="pickPanel" hidden>

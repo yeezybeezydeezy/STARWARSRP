@@ -333,6 +333,17 @@ const SCHEMA = [
     { k: 'hueAmt', label: 'Colour cycle', min: 0, max: 1, step: 0.01, def: 0 },
     { k: 'hueSpread', label: 'Colour cycle spread', min: 0, max: 2, step: 0.05, def: 0.6 },
   ]},
+  { id: 'fx4', title: 'Insane effects', tex: true, help: 'Real-time 3D and simulation: a tunnel flythrough, a rotating wireframe, Conway\'s Game of Life, a ray-traced planet, a lightsaber duel and rising smoke.', items: [
+    { k: 'tunnelAmt', label: 'Hyperdrive tunnel', min: 0, max: 1.2, step: 0.01, def: 0 },
+    { k: 'tunnelSpeed', label: 'Tunnel speed (per loop)', min: 1, max: 8, step: 1, def: 4 },
+    { k: 'wireAmt', label: 'Holo wireframe', min: 0, max: 1.2, step: 0.01, def: 0 },
+    { k: 'wireSize', label: 'Wireframe size', min: 20, max: 110, step: 1, def: 62 },
+    { k: 'lifeAmt', label: 'Game of Life', min: 0, max: 1.2, step: 0.01, def: 0 },
+    { k: 'planetAmt', label: 'Planet + moon', min: 0, max: 1.2, step: 0.01, def: 0 },
+    { k: 'planetSize', label: 'Planet size', min: 20, max: 80, step: 1, def: 44 },
+    { k: 'saberAmt', label: 'Lightsaber duel', min: 0, max: 1.2, step: 0.01, def: 0 },
+    { k: 'smokeAmt', label: 'Rising smoke', min: 0, max: 1.2, step: 0.01, def: 0 },
+  ]},
   { id: 'fx3', title: 'Even more effects', tex: true, help: 'Particles, circuitry, water, fractals and HUD readouts. Mix freely with everything else.', items: [
     { k: 'embersAmt', label: 'Embers / fireflies', min: 0, max: 1.2, step: 0.01, def: 0 },
     { k: 'dropsAmt', label: 'Rain on the glass', min: 0, max: 1.2, step: 0.01, def: 0 },
@@ -412,7 +423,7 @@ const SCHEMA = [
 ];
 const TEX_KEYS = SCHEMA.filter(g => g.tex).flatMap(g => g.items.map(i => i.k));
 const FX_KEYS = SCHEMA.filter(g => g.id.startsWith('fx')).flatMap(g => g.items.map(i => i.k));
-const PANE_OF_TAB = { look: 'look', lines: 'look', glint: 'look', bars: 'effects', patterns: 'effects', glitch: 'effects', fx: 'effects', fx2: 'effects', fx3: 'effects' };
+const PANE_OF_TAB = { look: 'look', lines: 'look', glint: 'look', bars: 'effects', patterns: 'effects', glitch: 'effects', fx: 'effects', fx2: 'effects', fx3: 'effects', fx4: 'effects' };
 const texChangedOf = p => TEX_KEYS.some(k => String(p[k]) !== String(DEFAULTS[k])) || p.exQuality !== DEFAULTS.exQuality;
 // "Download outfit" uploads a changed visor texture to the STARWARSRP uploads branch (upload-worker/) and links it,
 // so nobody has to host anything. Empty = upload service not set up: host the .vtf by hand as before.
@@ -463,6 +474,16 @@ const PRESETS = {
   'Comms Equalizer': { eqAmt: 0.85, eqBars: 22, base: 0.08, lineAmt: 0, interf: 0, coreAmt: 0, haloAmt: 0, trailAmt: 0 },
   'Spectrum (event only)': { hueAmt: 1, hueSpread: 0.6, plasmaAmt: 0.35, plasmaScale: 55, base: 0.22, lineAmt: 0.08 },
   'Overload': { arcAmt: 0.7, arcRate: 0.6, plasmaAmt: 0.4, glitchAmt: 0.35, flickerAmt: 0.3, base: 0.2, coreAmt: 0.3 },
+  'Hyperdrive': { tunnelAmt: 1, tunnelSpeed: 4, base: 0.03, lineAmt: 0, interf: 0, coreAmt: 0, haloAmt: 0, trailAmt: 0, topShade: 0 },
+  'Wormhole': { tunnelAmt: 0.7, tunnelSpeed: 6, vortexAmt: 0.45, vortexArms: 5, starsAmt: 0.4, color2: '#16203A', gradAmt: 0.5, gradDir: 'radial', base: 0.03, lineAmt: 0, interf: 0, coreAmt: 0, haloAmt: 0, trailAmt: 0 },
+  'Holo Icosahedron': { wireAmt: 1, wireSize: 64, lineAmt: 0.3, lineSharp: 0.7, lineSpacing: 1.2, flickerAmt: 0.12, base: 0.06, coreAmt: 0, haloAmt: 0, trailAmt: 0 },
+  'Game of Life': { lifeAmt: 1, base: 0.04, lineAmt: 0, interf: 0, coreAmt: 0, haloAmt: 0, trailAmt: 0, edgeAmt: 0.4 },
+  'Homeworld': { planetAmt: 1, planetSize: 46, starsAmt: 0.6, color2: '#9CC8FF', base: 0.02, lineAmt: 0, interf: 0, coreAmt: 0, haloAmt: 0, trailAmt: 0 },
+  'Holotable': { planetAmt: 0.8, planetSize: 40, wireAmt: 0.6, wireSize: 44, lineAmt: 0.35, lineSharp: 0.8, flickerAmt: 0.15, base: 0.05, coreAmt: 0 },
+  'Saber Duel': { saberAmt: 1, color2: '#9CC8FF', base: 0.03, lineAmt: 0, interf: 0, coreAmt: 0, haloAmt: 0, trailAmt: 0, topShade: 0 },
+  'Duel of the Fates': { saberAmt: 1, embersAmt: 0.6, fireAmt: 0.3, fireHeight: 0.35, color2: '#9CC8FF', base: 0.03, lineAmt: 0, interf: 0, coreAmt: 0, haloAmt: 0, trailAmt: 0 },
+  'Smoke Signal': { smokeAmt: 1, base: 0.05, lineAmt: 0, interf: 0, coreAmt: 0.15, haloAmt: 0.05, trailAmt: 0, topShade: 0 },
+  'Kamino Storm': { smokeAmt: 0.7, dropsAmt: 0.6, arcAmt: 0.5, arcRate: 0.2, base: 0.06, lineAmt: 0, interf: 0, coreAmt: 0, haloAmt: 0, trailAmt: 0 },
   'Ember Storm': { embersAmt: 1, fireAmt: 0.35, fireHeight: 0.45, base: 0.06, lineAmt: 0, interf: 0, coreAmt: 0, haloAmt: 0, trailAmt: 0, topShade: 0 },
   'Firefly Night': { embersAmt: 0.85, starsAmt: 0.35, base: 0.03, rimAmt: 0.08, lineAmt: 0, interf: 0, coreAmt: 0, haloAmt: 0, trailAmt: 0, reflAmt: 0.25 },
   'Rain on Glass': { dropsAmt: 1, base: 0.12, reflAmt: 0.9, lineAmt: 0, interf: 0, coreAmt: 0.15, haloAmt: 0.06, trailAmt: 0, topShade: 0.35 },
@@ -947,6 +968,99 @@ function makeShader(p, D) {
         });
       }
     }
+    if (p.tunnelAmt > 0) {   // hyperdrive tunnel: polar coordinates around the visor centre become depth and angle
+      const dx = (x - G.cx) * ASPECT, dy = y - G.cy, r = Math.hypot(dx, dy) + 0.5, z = 46 / r;
+      const ang = Math.atan2(dy, dx) / TAU + t + 0.08 * z, v = z + t * p.tunnelSpeed;
+      const ring = Math.exp(-(((fract(v) - 0.5) / 0.06) ** 2)), rib = Math.exp(-(((fract(ang * 10) - 0.5) / 0.05) ** 2));
+      const fog = Math.exp(-z * 0.18) * clamp(r / 6, 0, 1), panel = 0.5 + 0.5 * Math.sin(TAU * (ang * 10 + 0.5)) * Math.sin(TAU * v);
+      fx += p.tunnelAmt * fog * (0.35 * panel + 0.9 * Math.max(ring, rib)); fxHot += p.tunnelAmt * fog * ring * rib * 1.5 + p.tunnelAmt * Math.exp(-r / 5);
+    }
+    if (p.wireAmt > 0) {   // holo wireframe: a rotating icosahedron in perspective, edges glowing, near side brighter
+      if (part.wt !== t) {
+        part.wt = t; const g = 1.618, V = [[-1, g, 0], [1, g, 0], [-1, -g, 0], [1, -g, 0], [0, -1, g], [0, 1, g], [0, -1, -g], [0, 1, -g], [g, 0, -1], [g, 0, 1], [-g, 0, -1], [-g, 0, 1]];
+        const ay = TAU * t, ax = TAU * t * 2, P2 = V.map(([a, b, c]) => {
+          const x1 = a * Math.cos(ay) + c * Math.sin(ay), z1 = -a * Math.sin(ay) + c * Math.cos(ay), y1 = b * Math.cos(ax) - z1 * Math.sin(ax), z2 = b * Math.sin(ax) + z1 * Math.cos(ax);
+          const s = p.wireSize / 1.9 / (1 + z2 * 0.18); return [G.cx + x1 * s / ASPECT, G.cy + y1 * s, z2];
+        });
+        part.wire = [];
+        for (let i0 = 0; i0 < 12; i0++) for (let i1 = i0 + 1; i1 < 12; i1++) {
+          const dd = V[i0].reduce((acc, c, k) => acc + (c - V[i1][k]) ** 2, 0);
+          if (Math.abs(dd - 4) < 0.01) part.wire.push([P2[i0], P2[i1]]);
+        }
+        part.wv = P2;
+      }
+      let e = 0;
+      for (const [a, b] of part.wire) {
+        const ex = (b[0] - a[0]) * ASPECT, ey = b[1] - a[1], px0 = (x - a[0]) * ASPECT, py0 = y - a[1], h = clamp((px0 * ex + py0 * ey) / (ex * ex + ey * ey), 0, 1);
+        const dd = Math.hypot(px0 - ex * h, py0 - ey * h), depth = 0.55 - 0.25 * (a[2] + (b[2] - a[2]) * h) / 1.9;
+        if (dd < 6) e = Math.max(e, Math.exp(-((dd / 1.2) ** 2)) * depth);
+      }
+      let dots = 0; for (const v of part.wv) dots += Math.exp(-(((x - v[0]) * ASPECT) ** 2 + (y - v[1]) ** 2) / 5);
+      fxHot += p.wireAmt * (e * 1.6 + dots * 0.8); fx += p.wireAmt * e * 0.5;
+    }
+    if (p.lifeAmt > 0) {   // Conway's Game of Life: gliders on a wrap-around 48x24 grid (they return to the start after exactly one loop)
+      const CW = 48, CH = 24, GEN = 192, gen = Math.round(t * GEN) % GEN;
+      if (part.lg !== gen) {
+        part.lg = gen;
+        if (!part.life0) {   // 32 gliders on a 6-cell lattice, all flying the same way: they keep their spacing, so they never collide
+          part.life0 = new Uint8Array(CW * CH);
+          for (let gy = 0; gy < CH; gy += 6) for (let gx = 0; gx < CW; gx += 6) {
+            const ox = gx + ((gy / 6) % 2) * 3, oy = gy;
+            for (const [a, b] of [[1, 0], [2, 1], [0, 2], [1, 2], [2, 2]]) part.life0[((oy + b) % CH) * CW + (ox + a) % CW] = 1;
+          }
+        }
+        let cur = part.life0.slice(); const hist = [cur];
+        const step = s => { const n = new Uint8Array(CW * CH); for (let cy = 0; cy < CH; cy++) for (let cx = 0; cx < CW; cx++) { let c = 0; for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) if (ox || oy) c += s[((cy + oy + CH) % CH) * CW + (cx + ox + CW) % CW]; const a = s[cy * CW + cx]; n[cy * CW + cx] = c === 3 || (a && c === 2) ? 1 : 0; } return n; };
+        for (let g2 = 0; g2 < gen; g2++) { cur = step(cur); hist.push(cur); }
+        part.lifeNow = cur; part.lifeOld = hist.slice(-5, -1);   // the last few generations, for fading trails
+      }
+      const cs = W / CW, cx = Math.floor(x / cs), cy = Math.floor(y / (H / CH)), lx = x / cs - cx - 0.5, ly = y / (H / CH) - cy - 0.5, k = cy * CW + cx;
+      if (cx >= 0 && cx < CW && cy >= 0 && cy < CH) {
+        const box = Math.max(Math.abs(lx), Math.abs(ly)) < 0.38 ? 1 : 0;
+        if (part.lifeNow[k]) { fxHot += p.lifeAmt * box * 0.9; fx += p.lifeAmt * 0.4; }
+        else for (let a = 0; a < part.lifeOld.length; a++) if (part.lifeOld[a][k]) fx += p.lifeAmt * box * 0.18 * (a + 1) / part.lifeOld.length;
+      }
+    }
+    if (p.planetAmt > 0) {   // ray-traced planet: continents on a sphere, day/night terminator, city lights, atmosphere, orbiting moon
+      const R = p.planetSize, pcx = W * 0.22, pcy = G.wingY, dx = (x - pcx) * ASPECT / R, dy = (y - pcy) / R, d2 = dx * dx + dy * dy;
+      const mo = TAU * t, mx = pcx + Math.cos(mo) * R * 1.9 / ASPECT, my = pcy + Math.sin(mo) * R * 0.45, mz = Math.sin(mo), mr = R * 0.22;
+      const moonD = Math.hypot((x - mx) * ASPECT, y - my) / mr, moonFront = mz > 0;
+      if (d2 < 1 && !(moonFront && moonD < 1)) {
+        const z = Math.sqrt(1 - d2), lon = Math.atan2(dx, z) + TAU * t, lat = Math.asin(clamp(-dy, -1, 1));
+        const px3 = Math.cos(lat) * Math.cos(lon), py3 = Math.sin(lat), pz3 = Math.cos(lat) * Math.sin(lon);
+        const land = fbm(px3 * 1.8 + pz3 * 1.1 + 5, py3 * 1.8 - pz3 * 1.3 + 3) > 0.5;
+        const light = clamp(-0.55 * dx - 0.35 * dy + 0.75 * z, 0, 1);
+        fx += p.planetAmt * (land ? 0.25 + 0.9 * light : 0.08 + 0.35 * light);
+        if (land && light < 0.12 && hash2(Math.floor(lon * 40), Math.floor(lat * 40)) > 0.72) fxHot += p.planetAmt * 0.7 * (1 - light / 0.12);
+        fxAlt += p.planetAmt * Math.pow(1 - z, 3) * 0.8 * (0.3 + light);
+      } else if (moonD < 1) {
+        const mz2 = Math.sqrt(1 - moonD * moonD); fx += p.planetAmt * (0.25 + 0.7 * clamp(0.75 * mz2 - 0.4 * ((x - mx) * ASPECT / mr), 0, 1));
+      } else if (d2 < 1.35) fxAlt += p.planetAmt * 0.9 * Math.exp(-(Math.sqrt(d2) - 1) / 0.08);   // atmosphere halo
+    }
+    if (p.saberAmt > 0) {   // lightsaber duel: two blades swinging from the wings, glow colour vs second colour, sparks where they cross
+      if (part.st !== t) {
+        part.st = t; const L = 130, a1 = -0.85 + 0.55 * Math.sin(TAU * t * 2), a2 = Math.PI + 0.85 - 0.55 * Math.sin(TAU * t * 2 + 0.6);
+        const s1 = [W * 0.16, G.wingY + 34, W * 0.16 + Math.cos(a1) * L / ASPECT, G.wingY + 34 + Math.sin(a1) * L];
+        const s2 = [W * 0.84, G.wingY + 34, W * 0.84 + Math.cos(a2) * L / ASPECT, G.wingY + 34 + Math.sin(a2) * L];
+        const d1x = s1[2] - s1[0], d1y = s1[3] - s1[1], d2x = s2[2] - s2[0], d2y = s2[3] - s2[1], den = d1x * d2y - d1y * d2x;
+        const ua = den ? ((s2[0] - s1[0]) * d2y - (s2[1] - s1[1]) * d2x) / den : -1, ub = den ? ((s2[0] - s1[0]) * d1y - (s2[1] - s1[1]) * d1x) / den : -1;
+        part.sab = [s1, s2]; part.clash = ua > 0 && ua < 1 && ub > 0 && ub < 1 ? [s1[0] + d1x * ua, s1[1] + d1y * ua] : null;
+      }
+      part.sab.forEach(([ax, ay, bx, by], k) => {
+        const ex = (bx - ax) * ASPECT, ey = by - ay, px0 = (x - ax) * ASPECT, py0 = y - ay, h = clamp((px0 * ex + py0 * ey) / (ex * ex + ey * ey), 0, 1), dd = Math.hypot(px0 - ex * h, py0 - ey * h);
+        const core = Math.exp(-((dd / 1.4) ** 2)), glow = Math.exp(-dd / 5.5);
+        fxHot += p.saberAmt * core * 1.4; if (k) fxAlt += p.saberAmt * glow * 1.3; else fx += p.saberAmt * glow * 1.3;
+      });
+      if (part.clash) {
+        const [cx0, cy0] = part.clash, dd = Math.hypot((x - cx0) * ASPECT, y - cy0);
+        fxHot += p.saberAmt * (Math.exp(-dd / 4) * 1.5 + (dd < 26 && hash2(Math.floor(x / 2) + f * 7, Math.floor(y / 2)) > 0.93 ? (1 - dd / 26) : 0));
+      }
+    }
+    if (p.smokeAmt > 0) {   // smoke: domain-warped noise rising one full period per loop (seamless)
+      const S = 48, per = 4, q = fbm(x / S + 3.1, y / S + t * per, per), n = fbm(x / S + 1.8 * q, y / S + t * per + 1.3 * q, per);
+      const wisp = clamp((n - 0.42) / 0.3, 0, 1);
+      fx += p.smokeAmt * wisp * wisp * (0.5 + 0.6 * rel); fxHot += p.smokeAmt * Math.pow(wisp, 6) * 0.4;
+    }
     if (p.hueAmt > 0) { const hb = hueRotate(BASE, TAU * p.hueAmt * fract(t + un * p.hueSpread)); BASE[0] = hb[0]; BASE[1] = hb[1]; BASE[2] = hb[2]; }
     // reflection
     const d = D.diag[i];
@@ -1233,7 +1347,7 @@ function buildUI() {
     thumbs.push({ P: q, sh: makeShader(q), ctx, img: ctx.createImageData(G.thumb.TW, G.thumb.TH), tile }); thumbSeen.observe(tile);
   }
   galRoot.innerHTML = ''; galRoot.appendChild(gal);
-  const FIRST = { fx3: 0, fx2: 1, fx: 2 };   // newest effects at the top of the Effects tab
+  const FIRST = { fx4: 0, fx3: 1, fx2: 2, fx: 3 };   // newest effects at the top of the Effects tab
   for (const g of [...SCHEMA].sort((a, b) => (FIRST[a.id] ?? 9) - (FIRST[b.id] ?? 9))) {
     const card = document.createElement('details'); card.className = 'card group'; card.open = g.id !== 'files';
     card.innerHTML = `<summary><h2>${g.title}</h2></summary><p class="help">${g.help}</p>`;

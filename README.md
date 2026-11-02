@@ -1,0 +1,1 @@
+Visor textures uploaded by the Visor Editor. Files are named by their hash; the editor puts their raw links into exported outfits.

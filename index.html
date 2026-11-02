@@ -156,6 +156,7 @@
       <button data-s="dark">Dark area</button>
       <button data-s="boot">Replay boot</button>
       <button data-s="kill">Kill</button>
+      <button id="btnGif" title="Records a few seconds of the helmet as it looks now, swaying side to side">Save GIF preview</button>
     </div>
   </section>
   <section class="panel">
@@ -413,12 +414,12 @@ const SCHEMA = [
     { k: 'blackVisor', type: 'bool', label: 'Black glass under the glow', def: true },
     { k: 'finish', type: 'select', label: 'Visor finish', def: 'matte', options: [['matte', 'Matte (edited normal map)'], ['glossy', 'Glossy (original)']] },
     { k: 'texSource', type: 'select', label: 'Texture source', def: 'url', options: [['url', 'Link (everyone sees it)'], ['local', 'Local test file (only you)']] },
-    { k: 'texUrl', type: 'text', label: 'Visor texture link', def: 'https://raw.githubusercontent.com/yeezybeezydeezy/gmodstuff/main/pac3/501st_visor_anim_v3.vtf' },
-    { k: 'texLocal', type: 'text', label: 'Local texture path', def: 'pac_visor/501st_visor_custom' },
-    { k: 'rimUrl', type: 'text', label: 'Rim mask link', def: 'https://raw.githubusercontent.com/yeezybeezydeezy/gmodstuff/main/pac3/501st_visor_rimglow_v3.vtf' },
-    { k: 'nmUrl', type: 'text', label: 'Matte normal map link', def: 'https://raw.githubusercontent.com/yeezybeezydeezy/gmodstuff/main/pac3/501st_helmet_nm_mattevisor.vtf' },
-    { k: 'shieldUrl', type: 'text', label: 'Blast shield paint link (empty = none)', def: 'https://raw.githubusercontent.com/yeezybeezydeezy/gmodstuff/main/pac3/republic_blast_shield_501st.vtf' },
-    { k: 'outName', type: 'text', label: 'Outfit file name', def: '501st_glowing_visor' },
+    { k: 'texUrl', type: 'text', label: 'Visor texture link', def: 'https://yeezybeezydeezy.github.io/STARWARSRP/helmets/aa0de5faf8/visor_anim.vtf' },
+    { k: 'texLocal', type: 'text', label: 'Local texture path', def: 'pac_visor/visor_custom' },
+    { k: 'rimUrl', type: 'text', label: 'Rim mask link', def: 'https://yeezybeezydeezy.github.io/STARWARSRP/helmets/aa0de5faf8/rim_mask.vtf' },
+    { k: 'nmUrl', type: 'text', label: 'Matte normal map link', def: 'https://yeezybeezydeezy.github.io/STARWARSRP/helmets/aa0de5faf8/helmet_nm_matte.vtf' },
+    { k: 'shieldUrl', type: 'text', label: 'Blast shield paint link (empty = none)', def: '' },
+    { k: 'outName', type: 'text', label: 'Outfit file name', def: 'glowing_visor' },
   ]},
 ];
 const TEX_KEYS = SCHEMA.filter(g => g.tex).flatMap(g => g.items.map(i => i.k));
@@ -435,7 +436,7 @@ const DEFAULTS = Object.fromEntries(SCHEMA.flatMap(g => g.items.map(i => [i.k, i
 DEFAULTS.exQuality = 'high';
 DEFAULTS.regiment = '501st_enlisted';
 for (const k of ['texUrl', 'rimUrl', 'nmUrl']) DEFAULTS[k] = HELMET[k];   // this helmet shape's hosted textures
-// 501st-family colours only (rule 5): main #274A73 plus lighter/darker blues as accents
+// default look: blue main #274A73 plus lighter/darker blues as accents (colours must match the regiment)
 const PRESETS = {
   // ---- outfit only: no upload needed
   'Current (v3)': {},
@@ -517,7 +518,10 @@ const PRESETS = {
 
 let P = Object.assign({}, DEFAULTS);
 try { const s = JSON.parse(localStorage.getItem('visorEditor.v1') || 'null'); if (s) Object.assign(P, s); } catch (e) {}
-for (const k of ['texUrl', 'rimUrl', 'nmUrl']) if (P[k] !== HELMET[k] && TYPES.some(t => t[k] === P[k])) P[k] = HELMET[k];   // another shape's stock link
+for (const k of ['texUrl', 'rimUrl', 'nmUrl']) if (P[k] !== HELMET[k] && (TYPES.some(t => t[k] === P[k]) || /\/gmodstuff\/main\/pac3\/501st_/.test(P[k]))) P[k] = HELMET[k];   // another shape's stock link, or the old Phase 2 one
+// old defaults named after the 501st (and its blast shield paint, which every export used to add)
+const OLD_DEFS = { outName: '501st_glowing_visor', texLocal: 'pac_visor/501st_visor_custom', shieldUrl: 'https://raw.githubusercontent.com/yeezybeezydeezy/gmodstuff/main/pac3/republic_blast_shield_501st.vtf' };
+for (const k in OLD_DEFS) if (P[k] === OLD_DEFS[k]) P[k] = DEFAULTS[k];
 const save = () => { try { localStorage.setItem('visorEditor.v1', JSON.stringify(P)); } catch (e) {} };
 
 // ---------------------------------------------------------------- data decoding
@@ -1122,13 +1126,16 @@ function tick() {
 
   const key = TEX_KEYS.map(k => P[k]).join('|') + '|' + P.exQuality;
   if (key !== shaderKey) { shader = makeShader(P); shaderKey = key; }
+  if (REC) REC.t0 ??= now;   // starts on the first frame actually drawn (a hidden tab draws none)
+  if (REC) GLS.cam.yaw = REC.yaw + 0.55 * Math.sin(Math.min(1, (now - REC.t0) / REC.len) * 2 * Math.PI);   // sway, ending where it started so the GIF loops
   const g0 = performance.now(); drawGL(t, factor, P.rimOn ? rc : [0, 0, 0], key);
+  if (REC) recFrame(now);
   const gms = performance.now() - g0; STATS.viewMs = STATS.viewMs * 0.9 + gms * 0.1; STATS.viewMax = Math.max(STATS.viewMax * 0.995, gms);
   if (now - (tick.lastThumb || 0) > 0.07) {
     tick.lastThumb = now; const t0 = performance.now(); drawThumbs(time);
     const ms = performance.now() - t0; STATS.thumbMs = STATS.thumbMs * 0.9 + ms * 0.1; STATS.thumbMax = Math.max(STATS.thumbMax * 0.995, ms);   // window.__visor.stats
   }
-  if (!loadError) document.getElementById('badge').textContent = !S.alive ? 'KILLED' : (S.tSince * P.bootSpeed < 2.2 && P.powerOn) ? 'BOOTING' :
+  if (!loadError) document.getElementById('badge').textContent = REC ? 'RECORDING GIF' : !S.alive ? 'KILLED' : (S.tSince * P.bootSpeed < 2.2 && P.powerOn) ? 'BOOTING' :
     [S.talk && 'TALKING', S.type && 'TYPING', S.dark && 'DARK AREA'].filter(Boolean).join(' + ') || 'IDLE';
   requestAnimationFrame(tick);
 }
@@ -1270,6 +1277,92 @@ function drawGL(t, factor, rimTint, key) {
   gl.uniform1f(GLS.u('uFactor'), factor);
   gl.clearColor(0.045, 0.055, 0.075, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   gl.drawElements(gl.TRIANGLES, MESH.ni, gl.UNSIGNED_SHORT, 0);
+}
+
+// ---------------------------------------------------------------- GIF preview
+// frames are grabbed from the 3D view right after it is drawn (the WebGL canvas is still readable then), cropped square
+let REC = null;
+const GIF_SIZE = 360, GIF_FPS = 20;
+document.getElementById('btnGif').onclick = e => {
+  if (REC || !GLS.gl) return;
+  e.target.disabled = true; flash('Recording 3 seconds of your helmet…');
+  const c = document.createElement('canvas'); c.width = c.height = GIF_SIZE;
+  REC = { t0: null, len: 3, last: -1, yaw: GLS.cam.yaw, frames: [], ctx: c.getContext('2d', { willReadFrequently: true }), btn: e.target };
+};
+function recFrame(now) {
+  const r = REC, el = now - r.t0;
+  if (el >= r.len) { REC = null; GLS.cam.yaw = r.yaw; flash('Making the GIF…'); setTimeout(() => saveGif(r), 30); return; }
+  if (el < r.frames.length / GIF_FPS) return;
+  const cv = GLS.gl.canvas, s = Math.min(cv.width, cv.height);
+  r.ctx.drawImage(cv, (cv.width - s) / 2, (cv.height - s) / 2, s, s, 0, 0, GIF_SIZE, GIF_SIZE);
+  r.frames.push(r.ctx.getImageData(0, 0, GIF_SIZE, GIF_SIZE).data);
+}
+function saveGif(r) {
+  try {
+    const blob = encodeGIF(r.frames, GIF_SIZE, GIF_SIZE, Math.round(100 / GIF_FPS)), e = regOf(P);
+    download(blob, `${e.group} ${e.role}`.replace(/[^\w-]+/g, '_') + '_visor.gif');
+    flash(`Saved the GIF (${(blob.size / 1048576).toFixed(1)} MB).`);
+  } catch (err) { flash('Could not make the GIF: ' + err.message); }
+  r.btn.disabled = false;
+}
+
+// one 256-colour palette for all frames (median cut over a 4-bit-per-channel histogram), then LZW per frame
+function encodeGIF(frames, w, h, delay) {
+  const hist = new Float64Array(4096 * 4);   // count, r, g, b sums per bin
+  for (const f of frames) for (let i = 0; i < f.length; i += 8) {   // every other pixel is plenty for the palette
+    const b = ((f[i] >> 4) << 8 | (f[i + 1] >> 4) << 4 | f[i + 2] >> 4) * 4;
+    hist[b]++; hist[b + 1] += f[i]; hist[b + 2] += f[i + 1]; hist[b + 3] += f[i + 2];
+  }
+  const bins = []; for (let b = 0; b < 4096; b++) if (hist[b * 4]) { const n = hist[b * 4]; bins.push([hist[b * 4 + 1] / n, hist[b * 4 + 2] / n, hist[b * 4 + 3] / n, n]); }
+  let boxes = [bins];
+  while (boxes.length < 256) {
+    let bi = -1, best = 0, ax = 0;
+    boxes.forEach((bx, i) => {
+      if (bx.length < 2) return;
+      for (let c = 0; c < 3; c++) { let lo = 255, hi = 0; for (const p of bx) { lo = Math.min(lo, p[c]); hi = Math.max(hi, p[c]); } if (hi - lo > best) { best = hi - lo; bi = i; ax = c; } }
+    });
+    if (bi < 0) break;
+    const bx = boxes[bi].sort((a, b) => a[ax] - b[ax]), tot = bx.reduce((s, p) => s + p[3], 0);
+    let acc = 0, k = 0; while (k < bx.length - 2 && acc + bx[k][3] < tot / 2) acc += bx[k++][3];
+    boxes.splice(bi, 1, bx.slice(0, k + 1), bx.slice(k + 1));
+  }
+  const pal = new Uint8Array(768);
+  boxes.forEach((bx, i) => { const n = bx.reduce((s, p) => s + p[3], 0); for (let c = 0; c < 3; c++) pal[i * 3 + c] = Math.round(bx.reduce((s, p) => s + p[c] * p[3], 0) / n); });
+  const near = new Int16Array(32768).fill(-1), np = boxes.length;
+  const index = (r, g, b) => {
+    const k = (r >> 3) << 10 | (g >> 3) << 5 | b >> 3;
+    if (near[k] < 0) { let bd = 1e9; for (let i = 0; i < np; i++) { const d = (pal[i * 3] - r) ** 2 + (pal[i * 3 + 1] - g) ** 2 + (pal[i * 3 + 2] - b) ** 2; if (d < bd) { bd = d; near[k] = i; } } }
+    return near[k];
+  };
+  const out = []; let len = 0;
+  const put = a => { out.push(a instanceof Uint8Array ? a : Uint8Array.from(a)); len += a.length; };
+  const u16 = v => [v & 255, v >> 8];
+  put([71, 73, 70, 56, 57, 97, ...u16(w), ...u16(h), 0xF7, 0, 0]); put(pal);
+  put([0x21, 0xFF, 11, ...[...'NETSCAPE2.0'].map(c => c.charCodeAt(0)), 3, 1, 0, 0, 0]);   // loop forever
+  const idx = new Uint8Array(w * h), table = new Int32Array(4096 * 256), stamp = new Int32Array(4096 * 256);
+  let gen = 0;
+  for (const f of frames) {
+    for (let i = 0; i < idx.length; i++) idx[i] = index(f[i * 4], f[i * 4 + 1], f[i * 4 + 2]);
+    put([0x21, 0xF9, 4, 0, ...u16(delay), 0, 0, 0x2C, 0, 0, 0, 0, ...u16(w), ...u16(h), 0, 8]);
+    // LZW, codes packed LSB first, written in 255-byte sub-blocks
+    const bytes = []; let cur = 0, bits = 0, size = 9, next = 258; gen++;
+    const emit = c => { cur |= c << bits; bits += size; while (bits >= 8) { bytes.push(cur & 255); cur >>>= 8; bits -= 8; } };
+    emit(256);
+    let pre = idx[0];
+    for (let i = 1; i < idx.length; i++) {
+      const k = idx[i], key = pre * 256 + k;
+      if (stamp[key] === gen) { pre = table[key]; continue; }
+      emit(pre);
+      if (next === 4096) { emit(256); next = 258; size = 9; gen++; }
+      else { if (next >= 1 << size) size++; stamp[key] = gen; table[key] = next++; }
+      pre = k;
+    }
+    emit(pre); emit(257); if (bits) bytes.push(cur & 255);
+    for (let i = 0; i < bytes.length; i += 255) { const n = Math.min(255, bytes.length - i); put([n]); put(Uint8Array.from(bytes.slice(i, i + n))); }
+    put([0]);
+  }
+  put([0x3B]);
+  return new Blob(out, { type: 'image/gif' });
 }
 
 // ---------------------------------------------------------------- preset gallery
@@ -1612,7 +1705,7 @@ function buildOutfit(p) {
     Extra5: POWER,
     Expression: rc.map(c => `${num(c)}*var4()*var5()`).join(', ') }));
   if (p.texSource === 'local') kids.push(part('event', 'only you see this (local test texture)', { Event: 'viewed_by_owner', Invert: true }));
-  const outfit = [part('group', '501st glowing visor', { OwnerName: 'self' }, [
+  const outfit = [part('group', 'glowing visor', { OwnerName: 'self' }, [
     part('entity2', 'trooper', {}, [part('material_3d', 'visor glow', mat, kids)]),
     talking, typing, ownView,
     part('sprite', 'light probe (invisible)', { Bone: 'head', Position: new Vec(7.56, -9.15, 0), Size: f(0), Alpha: f(0) }, [lightSensor, powerState, power]),
@@ -1784,7 +1877,7 @@ document.getElementById('btnOutfit').onclick = async e => {
     flash(`Saved ${name}. ${r.note} Put it in garrysmod\\data\\pac3\\ and load it from pac → load.`);
     return;
   }
-  const name = (P.outName || '501st_glowing_visor').replace(/[^\w\-]+/g, '_') + '.txt';
+  const name = (P.outName || 'glowing_visor').replace(/[^\w\-]+/g, '_') + '.txt';
   download(new Blob([buildOutfit(P)], { type: 'text/plain' }), name);
   flash('Saved ' + name + ' — put it in garrysmod\\data\\pac3\\ and load it from pac → load.');
 };
@@ -1869,13 +1962,13 @@ document.getElementById('btnVtf').onclick = async e => {
   btn.disabled = true; prog.style.display = 'block'; prog.value = 0;
   try {
     const blob = await buildVTF(Object.assign({}, P), v => prog.value = v);
-    const name = (P.texLocal.split('/').pop() || '501st_visor_custom') + '.vtf';
+    const name = (P.texLocal.split('/').pop() || 'visor_custom') + '.vtf';
     download(blob, name);
     flash(`Saved ${name} (${(blob.size / 1048576).toFixed(1)} MB). Host it, paste the link into "Visor texture link", then download the outfit.`);
   } finally { btn.disabled = false; prog.style.display = 'none'; }
 };
 
-window.__visor = { stats: STATS, mergeVisor, PAC, buildOutfit, buildVTF, renderFrame, makeShader, P: () => P, DATA };
+window.__visor = { stats: STATS, mergeVisor, PAC, buildOutfit, buildVTF, renderFrame, makeShader, encodeGIF, P: () => P, DATA };
 init();
 </script>
 </body>

@@ -1589,7 +1589,7 @@ function buildOutfit(p) {
   const [u0, v0, u1, v1] = HELMET.rect, sx = 1 / (u1 - u0), sy = 1 / (v1 - v0), r5 = x => +x.toFixed(5);
   const e = regOf(p), vmt = e.vmt || {};   // shading from the helmet's own material (Phase 2 keeps the approved values)
   const mat = {
-    MaterialOverride: e.material, basetexture: p.blackVisor && p.paintFor === e.basetexture && p.paintUrl ? p.paintUrl : e.basetexture,
+    MaterialOverride: e.material, basetexture: p.blackVisor && p.paintFor === e.basetexture + '|2' && p.paintUrl ? p.paintUrl : e.basetexture,
     bumpmap: p.finish === 'matte' && p.nmUrl ? p.nmUrl : HELMET.bumpmap,
     color2: vmt.color2 ? new Vec(...vmt.color2) : new Vec(0.9, 0.9, 0.9), halflambert: true, model: true, nocull: true,
     phong: true, phongboost: vmt.phongboost ?? 1.7, phongexponent: f(vmt.phongexponent ?? 15), phongexponenttexture: vmt.phongexponenttexture ?? 'wgcwrp/shared/plain_exp',
@@ -1750,13 +1750,14 @@ document.getElementById('fileMerge').onchange = async e => {
 // black glass: build the paint with the visor blacked out as a 1024 DXT1 VTF, upload it once per paint
 async function linkPaint(btn) {
   const bt = regOf(P).basetexture;
-  if (!P.blackVisor || !UPLOAD_URL || (P.paintFor === bt && P.paintUrl)) return true;
+  const PAINT_V = bt + '|2';   // |2: paints from before the mipmap fix get rebuilt
+  if (!P.blackVisor || !UPLOAD_URL || (P.paintFor === PAINT_V && P.paintUrl)) return true;
   btn.disabled = true;
   try {
     flash('Blacking out the visor glass on your helmet paint…');
     const c = blackenPaint(await loadImg(REG.textures[bt])), n = c.width, px = c.getContext('2d').getImageData(0, 0, n, n).data, rgb = new Uint8Array(n * n * 3);
     for (let i = 0; i < n * n; i++) { rgb[i * 3] = px[i * 4]; rgb[i * 3 + 1] = px[i * 4 + 1]; rgb[i * 3 + 2] = px[i * 4 + 2]; }
-    const levels = []; for (let l = 0; ; l++) { const s = Math.max(1, n >> l); levels.push(l ? encodeDXT1(boxDown(rgb, n, n, l), s, s) : encodeDXT1(rgb, n, n)); if (s === 1) break; }
+    const levels = []; for (let l = 0; ; l++) { const s = Math.max(1, n >> l); levels.push(l ? encodeDXT1(boxDown(rgb, n, n, l)[0], s, s) : encodeDXT1(rgb, n, n)); if (s === 1) break; }
     const hdr = new ArrayBuffer(80), dv = new DataView(hdr);
     [86, 84, 70, 0].forEach((ch, i) => dv.setUint8(i, ch));
     dv.setUint32(4, 7, true); dv.setUint32(8, 2, true); dv.setUint32(12, 80, true); dv.setUint16(16, n, true); dv.setUint16(18, n, true);
@@ -1767,7 +1768,7 @@ async function linkPaint(btn) {
     const r = await fetch(UPLOAD_URL, { method: 'POST', body: blob, headers: { 'content-type': 'application/octet-stream' } });
     const j = await r.json().catch(() => ({}));
     if (!r.ok || !j.url) throw new Error(j.error || 'upload service answered ' + r.status);
-    P.paintUrl = j.url; P.paintFor = bt; save();
+    P.paintUrl = j.url; P.paintFor = PAINT_V; save();
     return true;
   } catch (err) {
     flash(`Upload failed (${err.message}). Nothing was saved: try again, or turn off "Black glass under the glow".`);

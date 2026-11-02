@@ -262,7 +262,7 @@ const SCHEMA = [
     { k: 'reflAmt', label: 'Glass reflection', min: 0, max: 1.5, step: 0.01, def: 0.5 },
     { k: 'color2', type: 'color', label: 'Second colour', def: '#4E94E6', swatches: true },
     { k: 'gradAmt', label: 'Blend to second colour', min: 0, max: 1, step: 0.01, def: 0 },
-    { k: 'gradDir', type: 'select', label: 'Blend direction', def: 'vertical', options: [['vertical', 'Top → bottom'], ['horizontal', 'Left → right'], ['radial', 'Centre → edges']] },
+    { k: 'gradDir', type: 'select', label: 'Blend direction', def: 'vertical', options: [['vertical', 'Top → bottom'], ['horizontal', 'Right → left'], ['radial', 'Centre → edges']] },
   ]},
   { id: 'lines', title: 'Scanlines', tex: true, help: 'Lines drifting across the glass. Drift is whole steps per loop (negative = the other way) so the loop stays seamless.', items: [
     { k: 'lineAmt', label: 'Strength', min: 0, max: 0.8, step: 0.01, def: 0.10 },
@@ -284,7 +284,7 @@ const SCHEMA = [
     { k: 'slant', label: 'Slant', min: -0.6, max: 0.6, step: 0.01, def: 0.18 },
     { k: 'sweepFrac', label: 'Share of loop spent sweeping', min: 0.15, max: 1, step: 0.01, def: 0.55 },
     { k: 'glintCount', label: 'Sweeps per loop', min: 1, max: 3, step: 1, def: 1 },
-    { k: 'glintDir', type: 'select', label: 'Direction', def: 'ltr', options: [['ltr', 'Left → right'], ['rtl', 'Right → left'], ['pingpong', 'Back and forth']] },
+    { k: 'glintDir', type: 'select', label: 'Direction', def: 'ltr', options: [['ltr', 'Right → left'], ['rtl', 'Left → right'], ['pingpong', 'Back and forth']] },
   ]},
   { id: 'bars', title: 'Scan bar & waveform', tex: true, help: 'A bright CRT-style refresh bar, and a moving comms trace across the visor.', items: [
     { k: 'scanBarAmt', label: 'Scan bar brightness', min: 0, max: 1, step: 0.01, def: 0 },
@@ -533,10 +533,13 @@ async function init() {
   const SW = lit.width, SH = lit.height;
   const g = { SW, SH, lit: lit.data, alb: alb.data, rimp: ch(rimp) };
   // one detail-texture data set per export resolution (256 is box-downsampled from the 512 set)
+  // un/vn run along the helmet (across / down the visor as Phase 2's do), whichever way the texture lays the visor out
+  const O = DATA.orient || { swap: false, su: 1, sv: 1 };
+  const orient = (u, v) => { const a = O.swap ? v : u, b = O.swap ? u : v; return [O.su > 0 ? a : 1 - a, O.sv > 0 ? b : 1 - b]; };
   function detail(w, h, m, r, e) {
     const d = { W: w, H: h, mask: m, rim: r, edge: e, un: new Float32Array(w * h), vn: new Float32Array(w * h), shadeRaw: new Float32Array(w * h), diag: new Float32Array(w * h) };
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-      const i = y * w + x, un = x / w, vn = y / h;
+      const i = y * w + x, [un, vn] = orient(x / w, y / h);
       d.un[i] = un; d.vn[i] = vn; d.diag[i] = un + vn * 0.35;
       d.shadeRaw[i] = Math.min(1, Math.max(0, (vn - DATA.vtop) / (DATA.vbot - DATA.vtop)));
     }
@@ -558,8 +561,9 @@ async function init() {
   g.rimPix = Int32Array.from(rimPix);
   // visor centre (sonar rings) and the middle of the left wing's height (waveform baseline)
   let sx = 0, sy = 0, sw = 0, wy = 0, ww = 0;
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const mm = g.mask[y * W + x]; if (mm <= 0.5) continue;
+  for (let i = 0; i < W * H; i++) {
+    const mm = g.mask[i]; if (mm <= 0.5) continue;
+    const x = g.D[512].un[i] * W, y = g.D[512].vn[i] * H;   // in helmet-oriented 512x256 space, like the effects
     sx += x * mm; sy += y * mm; sw += mm; if (x < W * 0.3) { wy += y * mm; ww += mm; }
   }
   g.cx = sx / sw; g.cy = sy / sw; g.wingY = wy / ww;
@@ -626,15 +630,23 @@ function makeShader(p, D) {
   const rmax = Math.hypot(W * 0.5 * ASPECT, H * 0.5);
   const BASE = [0, 0, 0];
   // top and bottom of the glass in each texture column, so flames and bars rise from the bottom edge of every part
-  if (!D.colTop) {
-    D.colTop = new Float32Array(D.W).fill(1e9); D.colBot = new Float32Array(D.W).fill(-1);
-    for (let yy = 0; yy < D.H; yy++) for (let xx = 0; xx < D.W; xx++) if (D.mask[yy * D.W + xx] > 0.5) { D.colTop[xx] = Math.min(D.colTop[xx], yy); D.colBot[xx] = Math.max(D.colBot[xx], yy); }
+  if (!D.colTop) {   // top and bottom of the glass (along helmet-down) in each slice across the helmet
+    const NB = D.W; D.colTop = new Float32Array(NB).fill(2); D.colBot = new Float32Array(NB).fill(-1);
+    for (let k = 0; k < D.W * D.H; k++) if (D.mask[k] > 0.5) {
+      const b = Math.min(NB - 1, Math.floor(D.un[k] * NB)); D.colTop[b] = Math.min(D.colTop[b], D.vn[k]); D.colBot[b] = Math.max(D.colBot[b], D.vn[k]);
+    }
+    // a sideways visor has fewer texels across than slices: fill the empty slices from their neighbours
+    for (let pass = 0; pass < 2; pass++) for (let b0 = 0; b0 < NB; b0++) {
+      const b = pass ? NB - 1 - b0 : b0, nb = pass ? b + 1 : b - 1;
+      if (D.colBot[b] < 0 && nb >= 0 && nb < NB && D.colBot[nb] >= 0) { D.colTop[b] = D.colTop[nb]; D.colBot[b] = D.colBot[nb]; }
+    }
   }
   const colTop = D.colTop, colBot = D.colBot;
   const part = {};   // per-frame particle positions (embers, raindrops), recomputed when the frame changes
   return function (i, yt, t, out) {
     const m = D.mask[i]; if (m <= 0) { out[0] = out[1] = out[2] = 0; return; }
-    const xt = i - yt * D.W, x = xt * sx, y = yt * sy, un = D.un[i], vn = D.vn[i], f = Math.round(t * FX) % FX;
+    const un = D.un[i], vn = D.vn[i], x = un * 512, y = vn * 256, xt = Math.round(x / sx), f = Math.round(t * FX) % FX;
+    yt = Math.round(y / sy);   // effects are laid out along the helmet, not the texture
     // colour blend
     let w = 0;
     if (p.gradAmt > 0) w = p.gradAmt * (p.gradDir === 'vertical' ? D.shadeRaw[i] : p.gradDir === 'horizontal' ? un : clamp(Math.hypot((x - G.cx) * ASPECT, y - G.cy) / (rmax * 0.6), 0, 1));
@@ -687,7 +699,8 @@ function makeShader(p, D) {
     }
     // ---- special effects (all off by default)
     let fx = 0, fxHot = 0, fxAlt = 0;   // fx: tinted with the visor colour, fxHot: near-white highlights, fxAlt: second colour
-    const rel = colBot[xt] > colTop[xt] ? clamp((yt - colTop[xt]) / (colBot[xt] - colTop[xt]), 0, 1) : clamp((vn - DATA.vtop) / (DATA.vbot - DATA.vtop), 0, 1);   // 0 top .. 1 bottom of the glass here
+    const sb = Math.min(D.W - 1, Math.floor(un * D.W));
+    const rel = colBot[sb] > colTop[sb] ? clamp((vn - colTop[sb]) / (colBot[sb] - colTop[sb]), 0, 1) : clamp((vn - DATA.vtop) / (DATA.vbot - DATA.vtop), 0, 1);   // 0 top .. 1 bottom of the glass here
     if (p.plasmaAmt > 0) {   // flowing energy: warped noise drifting round a circle (seamless)
       const S = p.plasmaScale, a = TAU * t * p.plasmaSpeed;
       const n1 = fbm(x / S + 1.6 * Math.cos(a), y / S + 1.6 * Math.sin(a));
@@ -776,7 +789,7 @@ function makeShader(p, D) {
       fx += p.starsAmt * 0.08;
     }
     if (p.ecgAmt > 0) {   // hospital heart monitor trace scrolling across the visor
-      const s = fract(un * 2 - t * Math.round(p.ecgBeats));
+      const s = fract((1 - un) * 2 + t * Math.round(p.ecgBeats));   // left-to-right on screen, scrolling left like a monitor
       const g = (c, w) => Math.exp(-(((s - c) / w) ** 2));
       const off = H * (0.04 * g(0.15, 0.03) - 0.06 * g(0.29, 0.008) + 0.34 * g(0.31, 0.01) - 0.1 * g(0.335, 0.01) + 0.08 * g(0.55, 0.05));
       const dd = Math.abs(y - (G.wingY - off));
@@ -922,7 +935,8 @@ function makeShader(p, D) {
       const val = Math.min(99, Math.floor((1 - t) * 100)), DH = 34, DW = 17, th = 3.2, cyy = G.wingY;
       const SEG = [0x3F, 0x06, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x6F];
       for (let dgt = 0; dgt < 2; dgt++) {
-        const ox = W * 0.74 + dgt * (DW + 9), lx = (x - ox) * ASPECT * 0.75, ly = y - (cyy - DH / 2);
+        // detail x runs right-to-left on screen (Phase 2's layout, which every helmet is lined up with): mirror the glyphs
+        const ox = W * 0.74 + (1 - dgt) * (DW + 9), lx = DW - (x - ox) * ASPECT * 0.75, ly = y - (cyy - DH / 2);
         if (lx < -th || lx > DW + th || ly < -th || ly > DH + th) continue;
         const bits = SEG[dgt ? val % 10 : Math.floor(val / 10)], hh = DH / 2;
         const segs = [[0, 0, DW, 0], [DW, 0, DW, hh], [DW, hh, DW, DH], [0, DH, DW, DH], [0, hh, 0, DH], [0, 0, 0, hh], [0, hh, DW, hh]];

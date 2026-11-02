@@ -1470,6 +1470,7 @@ function buildOutfit(p) {
   };
   // high quality swaps the stock rim mask for its 1024 version; a rim link you pasted in yourself is kept
   const rimMask = p.rimRes === '1024' && TYPES.some(t => t.rimUrl === p.rimUrl) ? HELMET.rimUrlHi : p.rimUrl;
+  if (vmt.translucent) mat.translucent = true;   // see-through glass visors (sim trooper) stay see-through
   if (p.rimOn) Object.assign(mat, { selfillum: true, selfillummask: rimMask, selfillumtint: new Vec(...rc) });
   const kids = [
     part('proxy', 'visor animation', { VariableName: 'detailframe', Additive: true, Extra1: TALK, Extra2: TYPE, Extra3: SCAN,

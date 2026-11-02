@@ -380,6 +380,7 @@ const SCHEMA = [
   ]},
   { id: 'rim', title: 'Rim glow on helmet', help: 'Soft glow on the helmet around the visor.', items: [
     { k: 'rimOn', type: 'bool', label: 'Enabled', def: true },
+    { k: 'rimRes', type: 'select', label: 'Quality', def: '512', options: [['512', 'Standard (512×512)'], ['1024', 'High (1024×1024, sharper)']] },
     { k: 'rimStrength', label: 'Strength', min: 0, max: 2.5, step: 0.01, def: 1.1 },
     { k: 'rimVoice', label: 'Flare when talking', min: 0, max: 1.5, step: 0.01, def: 0.5 },
     { k: 'rimFollow', type: 'bool', label: 'Same colour as visor', def: true },
@@ -1292,7 +1293,9 @@ function buildOutfit(p) {
     detail: tex, detailblendmode: 5, detailblendfactor: f(1), detailscale: f(1), detailframe: 0,
     detailtexturetransformScale: new Vec(r5(sx), r5(sy), 1), detailtexturetransformPosition: new Vec(r5(-u0 * sx), r5(-v0 * sy), 0),
   };
-  if (p.rimOn) Object.assign(mat, { selfillum: true, selfillummask: p.rimUrl, selfillumtint: new Vec(...rc) });
+  // high quality swaps the stock rim mask for its 1024 version; a rim link you pasted in yourself is kept
+  const rimMask = p.rimRes === '1024' && TYPES.some(t => t.rimUrl === p.rimUrl) ? HELMET.rimUrlHi : p.rimUrl;
+  if (p.rimOn) Object.assign(mat, { selfillum: true, selfillummask: rimMask, selfillumtint: new Vec(...rc) });
   const kids = [
     part('proxy', 'visor animation', { VariableName: 'detailframe', Additive: true, Extra1: TALK, Extra2: TYPE, Extra3: SCAN,
       Expression: `ftime()*${num(p.fps * qual(p).frames / 48)}*(1 + ${num(p.su)}*var1() + ${num(p.tu)}*var2() + ${num(p.bootScan)}*var3())` }),

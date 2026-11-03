@@ -45,6 +45,7 @@
   <div class="view"><canvas id="gl"></canvas><div class="hint">drag to spin · wheel to zoom · hover a piece to find it</div></div>
   <div class="side">
     <div class="card"><h2>Clothing</h2><div id="pieces"></div></div>
+    <div class="card"><h2>Cloth effects</h2><div id="cloth"></div></div>
     <div class="card"><h2>Rodian</h2><div id="body"></div></div>
     <div class="card">
       <div class="btns"><button class="primary" id="btnOutfit">Download outfit (.txt)</button><button id="btnReset">Reset all</button></div>
@@ -58,8 +59,11 @@ const BASE = location.href.replace(/[^/]*$/, '');                      // jedi/ 
 const RAW = 'https://yeezybeezydeezy.github.io/STARWARSRP/';
 const UPLOAD_URL = 'https://visor-upload.yeezybeezydeezy.workers.dev/upload';
 const EYES = BASE + '../rodian/eyes/';                               // eye effects: <id>.vtf (24 fps, 120 frames) + <id>.gif preview
-const LIVING_URL = RAW + 'rodian/head_rodian_n_scales.vtf';      // animated normal map: each scale flexes and tilts, 60 frames at 20 fps
-const SHIMMER_URL = RAW + 'rodian/head_scales_shimmer.vtf';   // 120 frames at 24 fps, added to the paint before lighting
+const LIVING_URL = RAW + 'rodian/head_rodian_n_scales_v2.vtf';   // animated normal map: scales flex and tilt, spines and ear funnels sway; 60 frames at 20 fps
+const SHIMMER_URL = RAW + 'rodian/head_scales_shimmer_v2.vtf';    // sheen over the scales + wet snout and lips; 120 frames at 24 fps, added before lighting
+// cloth (jedi_cloth.py): breathing + breeze normal map (60 frames at 15 fps), gold thread layer (48 frames at 12 fps), kyber crystal mask
+const CLOTH = RAW + 'jedi/', CLOTH_N = CLOTH + 'cloth_n.vtf', KYBER_MASK = CLOTH + 'kyber_mask.vtf';
+const THREAD_URL = () => CLOTH + 'cloth_' + (S.embroidery && S.crest ? 'embsym' : S.embroidery ? 'emb' : 'sym') + '.vtf';
 const EYES_URL = id => RAW + 'rodian/eyes/' + id + '.vtf';
 const N = 1024;
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -67,7 +71,8 @@ const hex2rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
 const rgb2hex = c => '#' + c.map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
 
 // ---------------------------------------------------------------- settings
-const DEFAULTS = { pieces: { 'Belt & pouches': { on: true, color: '#d9d3c7' } }, skin: { on: true, color: '#8e5cc4' }, shimmer: true, living: true, eyeFx: 'iridescent' };
+const DEFAULTS = { pieces: { 'Belt & pouches': { on: true, color: '#d9d3c7' } }, skin: { on: true, color: '#8e5cc4' }, shimmer: true, living: true, eyeFx: 'iridescent', eyeVoice: true, eyeLight: true, eyeMeditate: true,
+  clothMove: true, embroidery: true, crest: true, kyber: { on: true, color: '#4fd1ff' } };
 let S = JSON.parse(JSON.stringify(DEFAULTS));
 try { const s = JSON.parse(localStorage.getItem('jediEditor.v1') || 'null'); if (s) S = Object.assign(S, s); } catch (e) {}
 if ('eyes' in S) { if (!S.eyes) S.eyeFx = 'none'; delete S.eyes; }   // older saves: a plain on/off
@@ -91,7 +96,21 @@ function recolor(src, out, want) {   // want(i) -> [r,g,b] target or null; ref(i
 let D;   // loaded data
 function outfitPaint() {
   const tgt = D.pieces.map((name, k) => { const p = S.pieces[name]; return p && p.on ? [...hex2rgb(p.color), D.ref[k]] : null; });
-  return recolor(D.outfit, D.outfitOut, p => { const k = D.piece[p]; return k ? tgt[k - 1] : null; });
+  const out = recolor(D.outfit, D.outfitOut, p => { const k = D.piece[p]; return k ? tgt[k - 1] : null; });
+  if (S.kyber.on) { const o = out.data, c = D.crystal.data; for (let i = 0; i < o.length; i += 4) if (c[i + 3] > 127) { o[i] = c[i]; o[i + 1] = c[i + 1]; o[i + 2] = c[i + 2]; } }   // the crystal itself
+  return out;
+}
+// the 3D preview also shows the gold thread (frame 0) and the crystal lit up; in game the thread is a separate layer,
+// so neither goes into the uploaded paint
+function previewPaint() {
+  const src = outfitPaint().data, o = D.previewOut.data, layers = [S.embroidery && D.threadEmb, S.crest && D.threadSym].filter(Boolean);
+  for (let i = 0; i < o.length; i += 4) {
+    let r = src[i], g = src[i + 1], b = src[i + 2];
+    for (const L of layers) { r += L[i]; g += L[i + 1]; b += L[i + 2]; }
+    o[i] = r; o[i + 1] = g; o[i + 2] = b; o[i + 3] = 255;
+  }
+  if (S.kyber.on) { const c = hex2rgb(S.kyber.color), m = D.crystal.data; for (let i = 0; i < o.length; i += 4) if (m[i + 3] > 127) { o[i] = c[0]; o[i + 1] = c[1]; o[i + 2] = c[2]; } }
+  return D.previewOut;
 }
 function headPaint() { const t = S.skin.on ? [...hex2rgb(S.skin.color), D.headRef] : null; return recolor(D.head, D.headOut, () => t); }
 
@@ -164,7 +183,7 @@ function draw(time) {
 }
 let dirty = { outfit: true, head: true };
 function loop(ms) {
-  if (dirty.outfit) { G.upload(G.tOutfit, outfitPaint()); dirty.outfit = false; }
+  if (dirty.outfit) { G.upload(G.tOutfit, previewPaint()); dirty.outfit = false; }
   if (dirty.head) { G.upload(G.tHead, headPaint()); dirty.head = false; }
   draw(ms / 1000); requestAnimationFrame(loop);
 }
@@ -182,19 +201,27 @@ function row(parent, name, origColor, state, onChange, hiId) {
   sync(); parent.appendChild(r); return sync;
 }
 let syncs = [];
+function toggle(parent, key, label, title, onChange) {   // an on/off option kept in S[key]
+  const r = document.createElement('div'); r.className = 'row';
+  r.innerHTML = `<input type="checkbox" id="c_${key}"><label for="c_${key}"></label>`;
+  r.lastChild.textContent = label; r.lastChild.title = title;
+  r.firstChild.checked = S[key]; r.firstChild.onchange = e => { S[key] = e.target.checked; save(); if (onChange) onChange(); }; parent.appendChild(r);
+}
 function buildPanel() {
   const P = document.getElementById('pieces'), B = document.getElementById('body'); P.innerHTML = B.innerHTML = ''; syncs = [];
   D.pieces.forEach((name, k) => {
     const st = S.pieces[name] || (S.pieces[name] = { on: false, color: rgb2hex(D.avg[k]) });
     syncs.push(row(P, name, rgb2hex(D.avg[k]), st, () => { dirty.outfit = true; save(); }, k + 1));
   });
+  const C = document.getElementById('cloth'); C.innerHTML = '';
+  const redraw = () => { dirty.outfit = true; };
+  toggle(C, 'clothMove', 'Breathing and breeze', 'The chest folds rise and fall as he breathes, and a light breeze ripples through the sash and lower tunic (in game, not in this preview)');
+  toggle(C, 'embroidery', 'Gold embroidery', 'Gold thread along the hems, neckline and cuffs, with a glint running along it', redraw);
+  toggle(C, 'crest', 'Jedi crest on the back', 'A gold-thread crest between the shoulder blades, with a sheen passing over it', redraw);
+  row(C, 'Kyber crystal', '#4fd1ff', S.kyber, () => { dirty.outfit = true; save(); });
   row(B, 'Skin colour', rgb2hex(D.headAvg), S.skin, () => { dirty.head = true; save(); });
-  const sh = document.createElement('div'); sh.className = 'row';
-  sh.innerHTML = `<input type="checkbox" id="c_shimmer"><label for="c_shimmer" title="A soft band of sheen rolls over the scales every few seconds (in game, not in this preview)">Shimmering scales</label>`;
-  sh.firstChild.checked = S.shimmer; sh.firstChild.onchange = e => { S.shimmer = e.target.checked; save(); }; B.appendChild(sh);
-  const lv = document.createElement('div'); lv.className = 'row';
-  lv.innerHTML = `<input type="checkbox" id="c_living"><label for="c_living" title="Every scale slowly flexes and tilts on its own, catching the light (in game, not in this preview)">Living scales</label>`;
-  lv.firstChild.checked = S.living; lv.firstChild.onchange = e => { S.living = e.target.checked; save(); }; B.appendChild(lv);
+  toggle(B, 'shimmer', 'Shimmering scales', 'A soft band of sheen rolls over the scales every few seconds, and the snout and lips have a wet gloss with the odd glint (in game, not in this preview)');
+  toggle(B, 'living', 'Living scales', 'Every scale slowly flexes and tilts on its own, and the head spines and ear funnels sway in the light (in game, not in this preview)');
   const h = document.createElement('h2'); h.textContent = 'Eye effect'; h.style.marginTop = '14px'; B.appendChild(h);
   const grid = document.createElement('div'); grid.className = 'fxgrid'; B.appendChild(grid);
   const pick = id => { S.eyeFx = id; save(); grid.querySelectorAll('.fx').forEach(x => x.classList.toggle('on', x.dataset.id === id)); document.getElementById('fxDesc').textContent = (D.fx.find(f => f.id === id) || { desc: 'The plain stock eyes, no animation.' }).desc; };
@@ -203,6 +230,9 @@ function buildPanel() {
     b.innerHTML = (f.id === 'none' ? '<span class="none">off</span>' : `<img src="${EYES + f.id}.gif" alt="" loading="lazy">`) + `<span>${f.name}</span>`;
     b.onclick = () => pick(f.id); grid.appendChild(b);
   }
+  toggle(B, 'eyeVoice', 'React when I talk', 'The eye effect brightens and speeds up with your voice');
+  toggle(B, 'eyeMeditate', 'Meditate while typing', 'The eye effect slowly fades out while you type in chat, and comes back when you stop');
+  toggle(B, 'eyeLight', 'Adjust to the light', 'The eyes dim in dark places and are brighter outdoors');
   const desc = document.createElement('p'); desc.id = 'fxDesc'; desc.className = 'note'; B.appendChild(desc);
   pick(D.fx.some(f => f.id === S.eyeFx) ? S.eyeFx : 'none');
 }
@@ -289,27 +319,54 @@ function lua(v, ind) {
 const part = (cls, name, props, kids = []) => ({ self: Object.assign({ ClassName: cls, Name: name, UniqueID: uid() }, props), children: kids });
 function outfitTxt(outfitUrl, headUrl) {
   const mats = [];
-  if (outfitUrl) mats.push(part('material_3d', 'clothing colours', { MaterialOverride: 'jedi_initiate', basetexture: outfitUrl,
-    bumpmap: 'hazel/jedi_order/initiate/jedi_initiate_n', halflambert: true, model: true, phong: true, phongboost: 1.5, phongexponent: 10,
-    phongexponenttexture: 'wgcwrp/shared/plain_exp', phongfresnelranges: vec([0.3, 0.7, 1]), phongalbedotint: true, rimlight: true, rimlightboost: 1, rimlightexponent: 0.5 }));
+  const thread = S.embroidery || S.crest, kyber = outfitUrl && S.kyber.on;
+  if (outfitUrl || S.clothMove || thread) {
+    const kc = hex2rgb(S.kyber.color).map(v => +(v / 255 * 1.6).toFixed(3));
+    const PULSE = '(0.45 + 0.75*(0.5 + 0.5*sin(time()*2.2))*(0.5 + 0.5*sin(time()*2.2)))';   // a soft, slow pulse
+    mats.push(part('material_3d', 'clothing', Object.assign({ MaterialOverride: 'jedi_initiate', basetexture: outfitUrl || 'hazel/jedi_order/initiate/jedi_initiate',
+      bumpmap: S.clothMove ? CLOTH_N : 'hazel/jedi_order/initiate/jedi_initiate_n', halflambert: true, model: true, phong: true, phongboost: 1.5, phongexponent: 10,
+      phongexponenttexture: 'wgcwrp/shared/plain_exp', phongfresnelranges: vec([0.3, 0.7, 1]), phongalbedotint: true, rimlight: true, rimlightboost: 1, rimlightexponent: 0.5 },
+      thread ? { detail: THREAD_URL(), detailblendmode: { lua: '1' }, detailblendfactor: 1, detailscale: 1, detailframe: { lua: '0' } } : {},
+      kyber ? { selfillum: true, selfillummask: KYBER_MASK, selfillumtint: vec(kc) } : {}),
+      [S.clothMove && part('proxy', 'breathing and breeze', { VariableName: 'bumpframe', Additive: true, Expression: 'ftime()*15' }),
+       thread && part('proxy', 'gold thread glint', { VariableName: 'detailframe', Additive: true, Expression: 'ftime()*12' }),
+       kyber && part('proxy', 'kyber pulse', { VariableName: 'selfillumtint', Expression: kc.map(v => v + '*' + PULSE).join(', ') })].filter(Boolean)));
+  }
   if (headUrl || S.shimmer || S.living) mats.push(part('material_3d', 'rodian skin', Object.assign({ MaterialOverride: 'head_rodian', basetexture: headUrl || 'wgcwrp/heads/head_rodian',
     bumpmap: S.living ? LIVING_URL : 'wgcwrp/heads/head_rodian_n', halflambert: true, model: true, phong: true },
     S.shimmer ? { detail: SHIMMER_URL, detailblendmode: { lua: '1' }, detailblendfactor: 1, detailscale: 1, detailframe: { lua: '0' } } : {}),
     [S.shimmer && part('proxy', 'scale shimmer', { VariableName: 'detailframe', Additive: true, Expression: 'ftime()*24' }),
      S.living && part('proxy', 'living scales', { VariableName: 'bumpframe', Additive: true, Expression: 'ftime()*20' })].filter(Boolean)));
-  if (S.eyeFx !== 'none') mats.push(part('material_3d', 'animated eyes', { MaterialOverride: 'eyes_rodian', basetexture: 'wgcwrp/heads/eyes_rodian',
-    bumpmap: 'wgcwrp/heads/eyes_rodian_n', color2: vec([0.9, 0.9, 0.9]), halflambert: true, model: true, phong: true, phongboost: 1.7,
-    phongfresnelranges: vec([1, 0.8, 0]), phongalbedotint: true, detail: EYES_URL(S.eyeFx), detailblendmode: { lua: '5' }, detailblendfactor: 1, detailscale: 1, detailframe: { lua: '0' } },
-    [part('proxy', 'eye animation', { VariableName: 'detailframe', Additive: true, Expression: 'ftime()*24' })]));
-  const outfit = [part('group', 'jedi outfit', { OwnerName: 'self' }, [part('entity2', 'jedi', {}, mats)])];
+  // the eyes can react: sensors for talking and typing, and an invisible light probe on the head whose proxy keeps
+  // smoothed values (it reads its own last value back), as the visor outfit does
+  const extra = [], eyes = S.eyeFx !== 'none';
+  const talking = part('event', 'sensor: talking', { Event: 'is_voice_chatting', Invert: false, AffectChildrenOnly: true });
+  const typing = part('event', 'sensor: typing', { Event: 'is_typing', Invert: false, AffectChildrenOnly: true });
+  const TALK = S.eyeVoice ? `if_event("${talking.self.UniqueID}", 1, 0)*min(1, voice_volume()*2.5)` : '0';
+  const TYPE = `if_event("${typing.self.UniqueID}", 1, 0)`;
+  const sense = part('proxy', 'eye sensors', { VariableName: 'SizeY',
+    Extra1: 'clamp(light_value()*2, 0, 1)',
+    Extra2: S.eyeLight ? '(var2() or 1) + ((0.3 + 0.8*var1()) - (var2() or 1))*min(1, ftime()*2)' : '1',
+    Extra3: S.eyeMeditate ? `(var3() or 1) + ((1 - 0.92*${TYPE}) - (var3() or 1))*min(1, ftime()*0.7)` : '1',
+    Expression: '0' });
+  if (eyes) {
+    mats.push(part('material_3d', 'animated eyes', { MaterialOverride: 'eyes_rodian', basetexture: 'wgcwrp/heads/eyes_rodian',
+      bumpmap: 'wgcwrp/heads/eyes_rodian_n', color2: vec([0.9, 0.9, 0.9]), halflambert: true, model: true, phong: true, phongboost: 1.7,
+      phongfresnelranges: vec([1, 0.8, 0]), phongalbedotint: true, detail: EYES_URL(S.eyeFx), detailblendmode: { lua: '5' }, detailblendfactor: 1, detailscale: 1, detailframe: { lua: '0' } },
+      [part('proxy', 'eye animation', { VariableName: 'detailframe', Additive: true, Extra1: TALK, Expression: 'ftime()*24*(1 + 0.8*var1())' }),
+       part('proxy', 'eye brightness', { VariableName: 'detailblendfactor', Extra1: TALK,
+         Extra2: `extra2("${sense.self.UniqueID}")`, Extra3: `extra3("${sense.self.UniqueID}")`, Expression: '(1 + 0.6*var1())*var2()*var3()' })]));
+    extra.push(talking, typing, part('sprite', 'eye light probe (invisible)', { Bone: 'head', Size: 0, Alpha: 0 }, [sense]));
+  }
+  const outfit = [part('group', 'jedi outfit', { OwnerName: 'self' }, [part('entity2', 'jedi', {}, mats), ...extra])];
   return outfit.map((x, i) => `[${i + 1}] = ${lua(x, 0)},\n`).join('');
 }
 function download(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); }
 document.getElementById('btnOutfit').onclick = async e => {
   const btn = e.target; btn.disabled = true;
   try {
-    const anyPiece = Object.values(S.pieces).some(p => p.on);
-    if (!anyPiece && !S.skin.on && !S.shimmer && !S.living && S.eyeFx === 'none') { flash('Nothing is changed yet: pick a colour first.'); return; }
+    const anyPiece = Object.values(S.pieces).some(p => p.on) || S.kyber.on;   // the crystal is painted into the outfit paint
+    if (!anyPiece && !S.skin.on && !S.shimmer && !S.living && !S.clothMove && !S.embroidery && !S.crest && S.eyeFx === 'none') { flash('Nothing is changed yet: pick a colour first.'); return; }
     flash('Building and uploading your textures…'); await new Promise(r => setTimeout(r, 30));
     const outfitUrl = anyPiece ? await upload(paintVTF(outfitPaint())) : null;
     const headUrl = S.skin.on ? await upload(paintVTF(headPaint())) : null;
@@ -323,9 +380,10 @@ document.getElementById('btnOutfit').onclick = async e => {
 (async () => {
   try {
     flash('Loading…');
-    const [fx, mesh, outfit, head, eyes, pieces] = await Promise.all([fetch(EYES + 'effects.json', { cache: 'no-cache' }).then(r => r.json()), fetch(BASE + 'mesh.json', { cache: 'no-cache' }).then(r => r.json()),
-      img(BASE + 'outfit.png'), img(BASE + 'head.png'), img(BASE + 'eyes.png'), img(BASE + 'pieces.png')]);
-    D = { fx, pieces: mesh.pieces, outfit: pixels(outfit), head: pixels(head), outfitOut: new ImageData(N, N), headOut: new ImageData(N, N) };
+    const [fx, mesh, outfit, head, eyes, pieces, crystal, tEmb, tSym] = await Promise.all([fetch(EYES + 'effects.json', { cache: 'no-cache' }).then(r => r.json()), fetch(BASE + 'mesh.json', { cache: 'no-cache' }).then(r => r.json()),
+      img(BASE + 'outfit.png'), img(BASE + 'head.png'), img(BASE + 'eyes.png'), img(BASE + 'pieces.png'), img(BASE + 'crystal.png'), img(BASE + 'cloth_emb.png'), img(BASE + 'cloth_sym.png')]);
+    D = { fx, pieces: mesh.pieces, outfit: pixels(outfit), head: pixels(head), outfitOut: new ImageData(N, N), headOut: new ImageData(N, N), previewOut: new ImageData(N, N),
+      crystal: pixels(crystal), threadEmb: pixels(tEmb).data, threadSym: pixels(tSym).data };
     const pm = pixels(pieces).data; D.piece = new Uint8Array(N * N); for (let p = 0; p < N * N; p++) D.piece[p] = pm[p * 4];
     // each piece's average colour and typical brightness (its shading is kept relative to that)
     const k = D.pieces.length, sum = Array.from({ length: k }, () => [0, 0, 0, 0, 0]), o = D.outfit.data;

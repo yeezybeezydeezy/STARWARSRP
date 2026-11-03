@@ -1,0 +1,62 @@
+[
+ {
+  "id": "iridescent",
+  "name": "Iridescent (original)",
+  "desc": "The original: iridescent compound-eye facets that twinkle, and a glowing pupil that looks around."
+ },
+ {
+  "id": "nebula",
+  "name": "Force Nebula",
+  "desc": "Swirling violet-blue nebula clouds turning around the pupil, with twinkling stars."
+ },
+ {
+  "id": "ember",
+  "name": "Sith Ember",
+  "desc": "Smouldering red-orange: a glowing molten core, cracks that pulse, embers rising."
+ },
+ {
+  "id": "hyperspace",
+  "name": "Hyperspace",
+  "desc": "Star streaks rushing out from the pupil, blue-white."
+ },
+ {
+  "id": "kyber",
+  "name": "Kyber Pulse",
+  "desc": "Crystal facets lit by a heartbeat: double rings pulse out from the pupil."
+ },
+ {
+  "id": "scanner",
+  "name": "Target Scanner",
+  "desc": "Red targeting HUD: rotating reticle, a scan line sweeping, ticks round the rim."
+ },
+ {
+  "id": "biolume",
+  "name": "Bioluminescent",
+  "desc": "Deep-sea glow: soft spots drifting and pulsing in aqua and green."
+ },
+ {
+  "id": "holo",
+  "name": "Holo Glitch",
+  "desc": "Blue hologram: scanlines rolling down, flicker, and glitches that slice the eye sideways."
+ },
+ {
+  "id": "galaxy",
+  "name": "Galaxy",
+  "desc": "A spiral galaxy turning in each eye, gold core and blue-white arms."
+ },
+ {
+  "id": "lightning",
+  "name": "Force Lightning",
+  "desc": "Force lightning crackling across the eye in violet-white arcs."
+ },
+ {
+  "id": "prism",
+  "name": "Prism",
+  "desc": "Holographic prism: rainbow rings and a rotating spectral fan."
+ },
+ {
+  "id": "slit",
+  "name": "Predator",
+  "desc": "A predator's eye: gold iris with fibres and a slit pupil that narrows and widens as it looks around."
+ }
+]

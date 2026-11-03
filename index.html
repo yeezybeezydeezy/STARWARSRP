@@ -99,6 +99,13 @@
   .mergebox { border: 1px dashed #2c3647; border-radius: 10px; padding: 8px; margin: 6px 0 2px; }
   .mergebox.on { border-style: solid; border-color: var(--accent); background: rgba(78,148,230,.06); }
   .mergebox .sub { flex: 1; min-width: 0; }
+  .mergebox.drag { border-style: solid; border-color: var(--accent); background: rgba(78,148,230,.12); }
+  .findpac { margin-top: 6px; font-size: 13px; color: var(--muted); }
+  .findpac summary { cursor: pointer; color: var(--text); }
+  .findpac ol { margin: 6px 0 2px; padding-left: 20px; }
+  .findpac li { margin: 4px 0; }
+  .findpac code { color: var(--text); background: #0e121a; border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; word-break: break-all; }
+  .findpac .pathrow { display: flex; gap: 6px; align-items: center; margin-top: 4px; }
   .pickfoot { display: flex; justify-content: space-between; gap: 8px; font-size: 11.5px; }
   button, .btn { appearance: none; border: 1px solid var(--line); background: var(--panel); color: var(--text); padding: 7px 11px; border-radius: 8px; cursor: pointer; font: inherit; font-size: 13px; }
   button:hover { border-color: #33405a; }
@@ -197,6 +204,19 @@
           <button id="btnMergeClear" title="Stop merging" hidden>✕</button>
           <input type="file" id="fileMerge" accept=".txt" hidden>
         </div>
+        <details class="findpac">
+          <summary>Where's my PAC file? (you can also drag it onto this box)</summary>
+          <ol>
+            <li>In game, open the PAC editor and <b>save</b> your outfit under a name you'll recognise. That makes <code>that name.txt</code>.
+              The outfit you spawn with is also kept as <code>autoload.txt</code>.</li>
+            <li>PAC saves them here:
+              <div class="pathrow"><code id="pacPath">C:\Program Files (x86)\Steam\steamapps\common\GarrysMod\garrysmod\data\pac3</code><button id="btnCopyPath" type="button">Copy</button></div>
+              Click <b>Merge into my PAC…</b>, click the address bar at the top of the window that opens, paste, press Enter, then pick your file.</li>
+            <li>Not there? Garry's Mod may be on another drive: in Steam, right-click <b>Garry's Mod</b> → <b>Manage</b> → <b>Browse local files</b>,
+              then open <code>garrysmod</code> → <code>data</code> → <code>pac3</code>.</li>
+            <li>The <code>__backup</code> folders in there are PAC's automatic backups, if you need an older version.</li>
+          </ol>
+        </details>
       </div>
       <div class="row" style="margin:6px 0 8px">
         <button class="primary" id="btnOutfit">Download outfit (.txt)</button>
@@ -2004,12 +2024,25 @@ function followMergeHelmet() {
 }
 document.getElementById('btnMerge').onclick = () => document.getElementById('fileMerge').click();
 document.getElementById('btnMergeClear').onclick = () => { MERGE = null; keepMerge(); showMerge(); };
-document.getElementById('fileMerge').onchange = async e => {
-  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+async function loadMergeFile(f) {
+  if (!f) return;
+  if (!/\.txt$/i.test(f.name)) { flash(`${f.name} isn't a PAC outfit: pick the .txt file from your pac3 folder.`); return; }
   const text = await f.text();
   try { PAC.parse(text); MERGE = { name: f.name, text }; } catch (err) { flash(`${f.name} is not a PAC outfit file.`); MERGE = null; }
   keepMerge(); if (!(MERGE && followMergeHelmet())) showMerge();
-};
+}
+document.getElementById('fileMerge').onchange = e => { const f = e.target.files[0]; e.target.value = ''; loadMergeFile(f); };
+{
+  const box = document.querySelector('.mergebox');
+  box.addEventListener('dragover', e => { e.preventDefault(); box.classList.add('drag'); });
+  box.addEventListener('dragleave', () => box.classList.remove('drag'));
+  box.addEventListener('drop', e => { e.preventDefault(); box.classList.remove('drag'); loadMergeFile(e.dataTransfer.files[0]); });
+  document.getElementById('btnCopyPath').onclick = async () => {
+    const path = document.getElementById('pacPath').textContent;
+    try { await navigator.clipboard.writeText(path); flash('Folder copied: paste it into the file window\'s address bar.'); }
+    catch (err) { const r = document.createRange(); r.selectNodeContents(document.getElementById('pacPath')); getSelection().removeAllRanges(); getSelection().addRange(r); flash('Press Ctrl+C to copy the selected folder.'); }
+  };
+}
 
 // black glass: build the paint with the visor blacked out as a 1024 DXT1 VTF, upload it once per paint
 async function linkPaint(btn) {

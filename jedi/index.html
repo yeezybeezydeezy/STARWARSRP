@@ -34,8 +34,11 @@
   .note { color: var(--muted); font-size: 12.5px; margin: 8px 0 0; }
   .fxgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
   .fx { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 6px; font-size: 12px; line-height: 1.2; text-align: center; }
-  .fx img, .fx .none { width: 72px; height: 72px; border-radius: 50%; background: #0b0e14; display: grid; place-items: center; color: var(--muted); }
+  .fx canvas, .fx .none { width: 72px; height: 72px; border-radius: 50%; background: #0b0e14; display: grid; place-items: center; color: var(--muted); }
   .fx.on { border-color: var(--accent); background: #1f2c44; box-shadow: 0 0 0 1px var(--accent); }
+  .eyeset { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 10px; color: var(--muted); font-size: 13px; }
+  select { font: inherit; color: var(--text); background: #1c2433; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+  .fxgroup { grid-column: 1 / -1; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .6px; margin-top: 6px; }
   @media (max-width: 860px) { .app { grid-template-columns: 1fr; padding: 16px; } .view { height: 60vh; } }
 </style>
 </head>
@@ -58,20 +61,275 @@
 const BASE = location.href.replace(/[^/]*$/, '');                      // jedi/ on the site
 const RAW = 'https://yeezybeezydeezy.github.io/STARWARSRP/';
 const UPLOAD_URL = 'https://visor-upload.yeezybeezydeezy.workers.dev/upload';
-const EYES = BASE + '../rodian/eyes/';                               // eye effects: <id>.vtf (24 fps, 120 frames) + <id>.gif preview
 const LIVING_URL = RAW + 'rodian/head_rodian_n_scales_v2.vtf';   // animated normal map: scales flex and tilt, spines and ear funnels sway; 60 frames at 20 fps
 const SHIMMER_URL = RAW + 'rodian/head_scales_shimmer_v2.vtf';    // sheen over the scales + wet snout and lips; 120 frames at 24 fps, added before lighting
 // cloth (jedi_cloth.py): breathing + breeze normal map (60 frames at 15 fps), gold thread layer (48 frames at 12 fps), kyber crystal mask
 const CLOTH = RAW + 'jedi/', CLOTH_N = CLOTH + 'cloth_n.vtf', KYBER_MASK = CLOTH + 'kyber_mask.vtf';
 const THREAD_URL = () => CLOTH + 'cloth_' + (S.embroidery && S.crest ? 'embsym' : S.embroidery ? 'emb' : 'sym') + '.vtf';
-const EYES_URL = id => RAW + 'rodian/eyes/' + id + '.vtf';
 const N = 1024;
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const hex2rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
 const rgb2hex = c => '#' + c.map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
 
+// ---------------------------------------------------------------- Rodian eye effects
+// Each effect lights one eye: px(x, y, r, a, t, f, o) adds RGB (0..1) into o for a point of the eye's disc, where x is
+// right, y is down, r = distance from the centre (0..1), a = angle (0..1 turns), t = loop time (0..1). Before that,
+// init(rng) builds the effect's fixed layout (once per eye) and frame(st, t, k) anything that changes per frame;
+// px gets the frame's data as f. Everything loops over t, so the texture repeats seamlessly at any frame count.
+const TAU = Math.PI * 2;
+const EYE_DISCS = [[0.2939, 0.2917, 0.2281], [0.6854, 0.7030, 0.2257]];   // where each eye sits in the eye texture (centre u, v, radius)
+const gl_ = (d, w) => Math.exp(-(d / w) * (d / w));                        // a soft spot or line of width w
+const sstep = (a, b, v) => { const s = clamp((v - a) / (b - a), 0, 1); return s * s * (3 - 2 * s); };
+const fract = v => v - Math.floor(v);
+const hash = n => fract(Math.sin(n * 12.9898) * 43758.5453);
+function rngOf(seed) { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) >>> 0; let x = Math.imul(s ^ (s >>> 15), 1 | s); x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x; return ((x ^ (x >>> 14)) >>> 0) / 4294967296; }; }
+const uni = (rng, a, b) => a + (b - a) * rng();
+function addHsv(o, h, s, v) {   // o += hsv colour
+  h = fract(h) * 6; const i = Math.floor(h), f = h - i, p = v * (1 - s), q = v * (1 - s * f), u = v * (1 - s * (1 - f));
+  const c = [[v, u, p], [q, v, p], [p, v, u], [p, q, v], [u, p, v], [v, p, q]][i % 6]; o[0] += c[0]; o[1] += c[1]; o[2] += c[2];
+}
+const add = (o, c, k) => { o[0] += c[0] * k; o[1] += c[1] * k; o[2] += c[2] * k; };
+function hexEdge(x, y, s) {   // [cell id, distance to the hex cell's edge] on a hex grid of size s
+  const cx = (2 / 3 * x) / s, cz = (-1 / 3 * x + Math.sqrt(3) / 3 * y) / s, cy = -cx - cz;
+  let rx = Math.round(cx), ry = Math.round(cy), rz = Math.round(cz);
+  const dx = Math.abs(rx - cx), dy = Math.abs(ry - cy), dz = Math.abs(rz - cz);
+  if (dx > dy && dx > dz) rx = -ry - rz; else if (dy > dz) ry = -rx - rz; else rz = -rx - ry;
+  const ox = cx - rx, oz = cz - rz, oy = -ox - oz;
+  return [rx * 1000 + rz, 0.5 - Math.max(Math.abs(ox), Math.abs(oy), Math.abs(oz))];
+}
+const segDist = (x, y, p, q) => { const vx = q[0] - p[0], vy = q[1] - p[1], L = vx * vx + vy * vy + 1e-9, u = clamp(((x - p[0]) * vx + (y - p[1]) * vy) / L, 0, 1); return Math.hypot(x - p[0] - u * vx, y - p[1] - u * vy); };
+// a look-around path for eyes with a pupil: holds still, then darts (saccades), like a real eye; loops
+function gaze(t, seed) {
+  const n = 6, i = Math.floor(t * n), u = t * n - i, ease = sstep(0, 0.18, u);
+  const at = j => { j = ((j % n) + n) % n; return j === 0 ? [0, 0] : [uni(rngOf(seed + j), -0.3, 0.3), uni(rngOf(seed + 50 + j), -0.18, 0.18)]; };
+  const p = at(i), q = at(i + 1); return [p[0] + (q[0] - p[0]) * ease, p[1] + (q[1] - p[1]) * ease];
+}
+const C = (r, g, b) => [r, g, b];
+
+const EYE_FX = [
+  // ---- the originals
+  { id: 'iridescent', name: 'Iridescent', group: 'Glow', desc: 'The original: iridescent compound-eye facets that twinkle, and a glowing pupil that looks around.',
+    frame: (st, t) => ({ p: [0.28 * Math.sin(TAU * t), 0.16 * Math.sin(2 * TAU * t + 1)] }),
+    px(x, y, r, a, t, f, o) {
+      const [cell, edge] = hexEdge(x, y, 0.085), ph = hash(cell), d2 = (x - f.p[0]) ** 2 + (y - f.p[1]) ** 2;
+      const k = 0.10 + 0.16 * r ** 1.5 * (0.6 + 0.4 * Math.sin(TAU * (2 * a - t))) + 0.10 * clamp(1 - edge / 0.06, 0, 1) + 0.30 * Math.max(0, Math.sin(TAU * (2 * t + ph))) ** 10;
+      addHsv(o, 0.42 + 0.14 * Math.sin(TAU * (a + t)), 0.8, k);
+      add(o, C(0.9, 1, 0.7), 0.55 * Math.exp(-d2 / 0.02)); add(o, C(0.3, 0.9, 0.7), 0.18 * Math.exp(-d2 / 0.09));
+    } },
+  { id: 'nebula', name: 'Force Nebula', group: 'Glow', desc: 'Swirling violet-blue nebula clouds turning around the pupil, with twinkling stars.',
+    init: rng => ({ stars: Array.from({ length: 26 }, () => [uni(rng, -0.8, 0.8), uni(rng, -0.8, 0.8), rng()]) }),
+    frame: (st, t) => ({ s: st.stars.map(([x, y, ph]) => [x, y, 0.6 * Math.max(0, Math.sin(TAU * (2 * t + ph))) ** 4]) }),
+    px(x, y, r, a, t, f, o) {
+      const q = a * TAU - TAU * t + r * 3.5, cl = (0.5 + 0.5 * Math.sin(3 * q) * Math.cos(2 * q - r * 4 + TAU * t)) ** 2 * (0.3 + 0.7 * r);
+      addHsv(o, 0.72 + 0.12 * Math.sin(q + TAU * t), 0.75, cl * 0.5);
+      for (const [sx, sy, k] of f.s) if (k > 0.01) { const w = gl_(Math.hypot(x - sx, y - sy), 0.025) * k; o[0] += w; o[1] += w; o[2] += w; }
+    } },
+  { id: 'ember', name: 'Sith Ember', group: 'Glow', desc: 'Smouldering red-orange: a glowing molten core, cracks that pulse, embers rising.',
+    init: rng => ({ em: Array.from({ length: 14 }, () => [rng(), uni(rng, -0.7, 0.7)]) }),
+    frame: (st, t) => ({ e: st.em.map(([ph, x0]) => [x0 + 0.08 * Math.sin(TAU * (t * 2 + ph)), 0.9 - 1.8 * fract(t + ph)]) }),
+    px(x, y, r, a, t, f, o) {
+      const n = Math.sin(x * 9 + 3 * Math.sin(y * 7 + TAU * t)) * Math.sin(y * 8 - 2 * Math.cos(x * 6 - TAU * t));
+      add(o, C(1, 0.25, 0.05), gl_(r, 0.45) * (0.5 + 0.15 * Math.sin(TAU * 3 * t)));
+      add(o, C(1, 0.45, 0.08), 0.6 * clamp(1 - Math.abs(n) / 0.12, 0, 1) * (0.55 + 0.45 * Math.sin(TAU * 2 * t + r * 6)));
+      for (const [ex, ey] of f.e) add(o, C(1, 0.7, 0.25), 0.8 * gl_(Math.hypot(x - ex, y - ey), 0.05));
+    } },
+  { id: 'hyperspace', name: 'Hyperspace', group: 'Star Wars', desc: 'Star streaks rushing out from the pupil, blue-white, like jumping to lightspeed.',
+    px(x, y, r, a, t, f, o) {
+      const L = 90, lane = Math.floor(a * L), p = fract(r - (t * 3 + hash(lane)));
+      const s = p < 0.25 ? clamp(1 - p / 0.25, 0, 1) * clamp(1 - Math.abs(fract(a * L) - 0.5) / 0.35, 0, 1) : 0;
+      add(o, C(0.6, 0.8, 1), 0.9 * s * r ** 0.7); add(o, C(0.5, 0.7, 1), gl_(r, 0.18) * (0.45 + 0.1 * Math.sin(TAU * 6 * t)));
+    } },
+  { id: 'kyber', name: 'Kyber Pulse', group: 'Star Wars', desc: 'Crystal facets lit by a heartbeat: double rings pulse out from the pupil.',
+    px(x, y, r, a, t, f, o) {
+      const [, edge] = hexEdge(x, y, 0.13), e = clamp(1 - edge / 0.07, 0, 1); let facet = e * 0.15;
+      for (const beat of [0, 0.12, 0.5, 0.62]) { const R = fract(t - beat) * 2.2, ring = gl_(r - R, 0.07) * clamp(1 - R / 1.2, 0, 1); add(o, C(0.2, 1, 0.75), 0.8 * ring); facet += e * ring * 0.5; }
+      add(o, C(0.3, 1, 0.85), facet); add(o, C(0.4, 1, 0.8), 0.35 * gl_(r, 0.2));
+    } },
+  { id: 'scanner', name: 'Target Scanner', group: 'Tech', desc: 'Red targeting HUD: rotating reticle, a radar sweep, ticks round the rim and a lock-on blink.',
+    px(x, y, r, a, t, f, o) {
+      const q = fract(a - t), v = (r < 0.97 ? clamp(1 - q / 0.18, 0, 1) ** 2 * 0.45 : 0) + (gl_(r - 0.35, 0.018) + gl_(r - 0.65, 0.018) + gl_(r - 0.92, 0.018)) * 0.35
+        + (Math.cos(a * TAU * 24 + TAU * t * 2) > 0.85 ? gl_(r - 0.82, 0.05) * 0.5 : 0) + (r < 0.3 ? (gl_(x, 0.012) + gl_(y, 0.012)) * 0.5 : 0)
+        + gl_(r, 0.08) * (Math.sin(TAU * 8 * t) > 0 ? 0.6 : 0);
+      add(o, C(1, 0.18, 0.12), v);
+    } },
+  { id: 'biolume', name: 'Bioluminescent', group: 'Glow', desc: 'Deep-sea glow: soft spots drifting and pulsing in aqua and green.',
+    init: rng => ({ sp: Array.from({ length: 18 }, (_, k) => [uni(rng, 0.1, 0.85), rng(), rng(), rng() < 0.5 ? -1 : 1, uni(rng, 0.07, 0.14), k % 3 ? C(0.1, 1, 0.7) : C(0.4, 0.6, 1)]) }),
+    frame: (st, t) => ({ s: st.sp.map(([r0, a0, ph, sp, w, c]) => [r0 * Math.cos(TAU * (a0 + sp * t)), r0 * Math.sin(TAU * (a0 + sp * t)), w, c, 0.55 * (0.4 + 0.6 * (0.5 + 0.5 * Math.sin(TAU * (2 * t + ph))) ** 3)]) }),
+    px(x, y, r, a, t, f, o) { for (const [sx, sy, w, c, k] of f.s) add(o, c, k * gl_(Math.hypot(x - sx, y - sy), w)); add(o, C(0, 0.25, 0.25), 0.4 * gl_(r, 0.6)); } },
+  { id: 'holo', name: 'Holo Glitch', group: 'Star Wars', desc: 'Blue hologram transmission: scanlines rolling down, flicker, and glitches that slice the eye sideways.',
+    frame(st, t, k) {
+      const rng = rngOf(1000 + k), bands = [];
+      if (rng() < 0.18) for (let i = 0; i < 3; i++) bands.push([uni(rng, -1, 1), uni(rng, 0.04, 0.15), uni(rng, -0.3, 0.3)]);
+      return { bands, flick: 0.8 + 0.2 * rng() };
+    },
+    px(x, y, r, a, t, f, o) {
+      let sh = 0; for (const [y0, w, s] of f.bands) if (Math.abs(y - y0) < w) sh += s;
+      const X = x + sh, R = Math.hypot(X, y), ring = gl_(R - 0.55, 0.05) + gl_(R, 0.22) * 0.8;
+      add(o, C(0.3, 0.75, 1), (0.12 + 0.35 * ring) * (0.55 + 0.45 * (0.5 + 0.5 * Math.sin((y - t * 4) * 70))) * f.flick);
+      if (sh) o[0] += 0.25 * gl_(Math.hypot(X + 0.04, y) - 0.55, 0.04);
+    } },
+  { id: 'galaxy', name: 'Galaxy', group: 'Glow', desc: 'A spiral galaxy turning in each eye, gold core and blue-white arms.',
+    init: rng => ({ st: Array.from({ length: 20 }, () => [uni(rng, -0.85, 0.85), uni(rng, -0.85, 0.85)]) }),
+    frame: (st, t) => ({ s: st.st.map(([x, y]) => { const rr = Math.hypot(x, y), aa = Math.atan2(y, x) + TAU * t * (0.6 / (rr + 0.3)); return [rr * Math.cos(aa), rr * Math.sin(aa)]; }) }),
+    px(x, y, r, a, t, f, o) {
+      const arms = (0.5 + 0.5 * Math.cos(2 * (a * TAU - TAU * t - 4.5 * Math.log(r + 0.05)))) ** 3 * Math.sqrt(clamp(1 - r, 0, 1));
+      add(o, C(0.55, 0.7, 1), 0.55 * arms); add(o, C(1, 0.8, 0.4), 0.7 * gl_(r, 0.2));
+      for (const [sx, sy] of f.s) { const w = 0.6 * gl_(Math.hypot(x - sx, y - sy), 0.02); o[0] += w; o[1] += w; o[2] += w; }
+    } },
+  { id: 'lightning', name: 'Force Lightning', group: 'Star Wars', desc: 'Force lightning crackling across the eye in violet-white arcs.',
+    frame(st, t, k) {
+      const rng = rngOf(2000 + (k >> 1)), arcs = [];
+      for (let j = 0; j < 3; j++) {
+        const a0 = uni(rng, 0, TAU), a1 = uni(rng, 0, TAU), p0 = [Math.cos(a0) * 0.95, Math.sin(a0) * 0.95], p1 = [Math.cos(a1) * 0.95, Math.sin(a1) * 0.95], pts = [p0];
+        for (let i = 1; i < 9; i++) pts.push([p0[0] + (p1[0] - p0[0]) * i / 9 + (rng() + rng() + rng() - 1.5) * 0.14, p0[1] + (p1[1] - p0[1]) * i / 9 + (rng() + rng() + rng() - 1.5) * 0.14]);
+        pts.push(p1); arcs.push(pts);
+      }
+      return { arcs, base: 0.25 + 0.1 * rng() };
+    },
+    px(x, y, r, a, t, f, o) {
+      add(o, C(0.35, 0.15, 0.6), gl_(r, 0.5) * f.base);
+      for (const pts of f.arcs) for (let i = 0; i + 1 < pts.length; i++) { const d = segDist(x, y, pts[i], pts[i + 1]); if (d < 0.25) { add(o, C(0.9, 0.85, 1), 0.8 * gl_(d, 0.02)); add(o, C(0.6, 0.3, 1), 0.35 * gl_(d, 0.08)); } }
+    } },
+  { id: 'prism', name: 'Prism', group: 'Glow', desc: 'Holographic prism: rainbow rings and a rotating spectral fan.',
+    px(x, y, r, a, t, f, o) {
+      addHsv(o, r * 1.6 - t * 2 + 0.15 * Math.sin(a * TAU * 3 + TAU * t), 0.85,
+        (0.12 + 0.18 * (0.5 + 0.5 * Math.sin(r * 30 - TAU * t * 4)) + 0.12 * (0.5 + 0.5 * Math.cos(a * TAU * 6 + TAU * t * 2))) * (0.4 + 0.6 * r));
+    } },
+  { id: 'slit', name: 'Predator', group: 'Real eyes', desc: 'A gold iris with fine fibres and a slit pupil that narrows and widens as it looks around.',
+    frame: (st, t) => ({ p: [0.2 * Math.sin(TAU * t), 0.1 * Math.sin(2 * TAU * t)], w: 0.05 + 0.1 * (0.5 + 0.5 * Math.sin(TAU * 2 * t)) }),
+    px(x, y, r, a, t, f, o) {
+      const X = x - f.p[0], Y = y - f.p[1], R = Math.hypot(X, Y), th = Math.atan2(Y, X);
+      const iris = R < 0.8 ? (0.45 + 0.55 * clamp(1 - R / 0.8, 0, 1)) * (0.85 + 0.15 * Math.sin(th * 23 + 3 * Math.sin(R * 9)) * Math.sin(th * 11 - R * 5)) : 0;
+      const slit = clamp((Math.abs(X) - f.w * Math.sqrt(clamp(1 - (Y / 0.7) ** 2, 0, 1))) / 0.03, 0, 1);
+      addHsv(o, 0.09 + 0.05 * R, 0.85, iris * 0.6 * slit); add(o, C(1, 0.6, 0.1), 0.3 * gl_(R - 0.75, 0.05));
+    } },
+
+  // ---- real eyes: proper irises, pupils that react, the way eyes actually move
+  { id: 'human', name: 'Human Iris', group: 'Real eyes', desc: 'A real eye: a blue-grey iris with fibres and crypts, a dark limbal ring, a pupil that breathes wider and narrower, and quick darting glances (saccades) with a catchlight that stays put.',
+    frame: (st, t) => ({ g: gaze(t, 41), pr: 0.2 + 0.06 * Math.sin(TAU * t) + 0.03 * Math.sin(TAU * 3 * t) }),
+    px(x, y, r, a, t, f, o) {
+      const X = x - f.g[0], Y = y - f.g[1], R = Math.hypot(X, Y), th = Math.atan2(Y, X), IR = 0.62;
+      if (R < IR) {
+        const u = (R - f.pr) / (IR - f.pr);                                                       // 0 at the pupil, 1 at the limbus
+        const fib = 0.75 + 0.25 * Math.sin(th * 41 + 2.5 * Math.sin(th * 7) + u * 3) * Math.sin(th * 17 - u * 6);
+        const crypt = 1 - 0.35 * gl_(Math.sin(th * 9 + 1.3) * 0.5 + (u - 0.45), 0.08);           // the darker pits halfway out
+        const collar = 1 + 0.4 * gl_(u - 0.22, 0.06);                                             // the bright collarette ring
+        const v = R < f.pr ? 0 : clamp(u * 6, 0, 1) * fib * crypt * collar * (1 - 0.75 * sstep(0.78, 1, u));   // dark limbal ring at the edge
+        add(o, [0.32 + 0.1 * u, 0.48 + 0.08 * u, 0.62], 0.62 * v); add(o, C(0.7, 0.55, 0.25), 0.2 * v * gl_(u - 0.15, 0.12));   // a little amber round the pupil
+      }
+      add(o, C(1, 1, 1), 0.7 * gl_(Math.hypot(x + 0.22, y + 0.28), 0.06));                        // catchlight: reflects the world, does not follow the eye
+    } },
+  { id: 'owl', name: 'Night Hunter', group: 'Real eyes', desc: 'A night predator: a huge pupil ringed in molten amber, and a third eyelid (nictitating membrane) that sweeps sideways across the eye.',
+    frame: (st, t) => ({ pr: 0.42 + 0.08 * Math.sin(TAU * 2 * t), m: (u => u >= 0 && u <= 1 ? Math.sin(Math.PI * u) : 0)((t - 0.35) / 0.12) }),
+    px(x, y, r, a, t, f, o) {
+      if (r < 0.75 && r > f.pr) { const u = (r - f.pr) / (0.75 - f.pr); add(o, C(1, 0.55, 0.08), (0.65 - 0.4 * u) * (0.85 + 0.15 * Math.sin(a * TAU * 60)) * sstep(0, 0.08, u)); }
+      add(o, C(1, 0.8, 0.4), 0.15 * gl_(r - f.pr, 0.02));
+      if (f.m > 0) { const edge = -1 + 2.2 * f.m; if (x < edge) { const k = 0.35 * (0.6 + 0.4 * Math.sin(y * 20)); o[0] = o[0] * 0.3 + k * 0.5; o[1] = o[1] * 0.3 + k * 0.55; o[2] = o[2] * 0.3 + k * 0.6; } }
+      add(o, C(1, 1, 1), 0.6 * gl_(Math.hypot(x + 0.3, y + 0.3), 0.05));
+    } },
+  { id: 'octopus', name: 'Cephalopod', group: 'Real eyes', desc: 'An octopus eye: a bar-shaped pupil, and colour cells (chromatophores) in the iris that flash in rippling waves.',
+    init: rng => ({ c: Array.from({ length: 70 }, () => { const rr = Math.sqrt(rng()) * 0.8, aa = rng() * TAU; return [rr * Math.cos(aa), rr * Math.sin(aa), rng(), uni(rng, 0.03, 0.07)]; }) }),
+    px(x, y, r, a, t, f, o) {
+      const bar = Math.abs(y) < 0.09 + 0.05 * Math.sin(TAU * t) && Math.abs(x) < 0.45 ? 0 : 1;
+      let v = 0; for (const [cx, cy, ph, w] of f.st.c) { const d = Math.hypot(x - cx, y - cy); if (d < 0.15) v += gl_(d, w) * (0.5 + 0.5 * Math.sin(TAU * (2 * t - Math.hypot(cx, cy) * 1.5 + ph * 0.3))) ** 3; }
+      if (r < 0.85) { add(o, C(0.75, 0.5, 0.2), 0.22 * bar); add(o, C(0.9, 0.35, 0.6), 0.45 * Math.min(1, v) * bar); }
+    },
+    frame: (st) => ({ st }) },
+  { id: 'insect', name: 'Insect', group: 'Real eyes', desc: 'A real compound eye: thousands of tiny lenses, and the dark pseudopupil, the spot where the lenses look straight at you, sliding as the head turns.',
+    frame: (st, t) => ({ p: [0.35 * Math.sin(TAU * t), 0.2 * Math.sin(TAU * t * 2 + 0.5)] }),
+    px(x, y, r, a, t, f, o) {
+      const [cell, edge] = hexEdge(x, y, 0.045), lens = 0.6 + 0.4 * sstep(0, 0.3, edge);
+      const pp = 1 - 0.95 * gl_(Math.hypot(x - f.p[0], y - f.p[1]), 0.16);
+      add(o, C(0.45, 0.6, 0.25), 0.55 * lens * pp * (0.85 + 0.15 * hash(cell))); add(o, C(1, 1, 0.9), 0.25 * gl_(edge - 0.33, 0.06) * gl_(Math.hypot(x + 0.3, y + 0.35), 0.35));
+    } },
+
+  // ---- Star Wars
+  { id: 'sith', name: 'Sith Eyes', group: 'Star Wars', desc: 'Eyes turned by the dark side: a burning yellow-orange iris with a red rim and red veins that pulse, and a small, steady pupil.',
+    frame: (st, t) => ({ g: gaze(t, 77), beat: 0.5 + 0.5 * Math.max(Math.sin(TAU * 2 * t), 0) ** 6 }),
+    px(x, y, r, a, t, f, o) {
+      const X = x - f.g[0] * 0.5, Y = y - f.g[1] * 0.5, R = Math.hypot(X, Y), th = Math.atan2(Y, X);
+      if (R < 0.6 && R > 0.13) { const u = (R - 0.13) / 0.47, fl = 0.85 + 0.15 * Math.sin(th * 31 + TAU * t) * Math.sin(th * 13 - u * 5); add(o, [1, 0.75 - 0.45 * u, 0.08], 0.55 * fl * (1 - 0.4 * u)); add(o, C(1, 0.08, 0.02), 0.5 * gl_(u - 1, 0.18)); }
+      const vein = gl_(Math.sin(th * 7 + Math.sin(r * 9) * 1.4), 0.06) * sstep(0.6, 0.95, r);
+      add(o, C(0.8, 0.02, 0.02), 0.45 * vein * f.beat);
+    } },
+  { id: 'chiss', name: 'Chiss', group: 'Star Wars', desc: 'Glowing red eyes with no visible pupil, like the Chiss: smooth, steady and slowly breathing light.',
+    px(x, y, r, a, t, f, o) {
+      const p = 0.85 + 0.15 * Math.sin(TAU * t);
+      add(o, C(1, 0.08, 0.05), 0.6 * p * sstep(0.95, 0.4, r)); add(o, C(1, 0.45, 0.35), 0.35 * p * gl_(r, 0.3)); add(o, C(1, 1, 1), 0.3 * gl_(Math.hypot(x + 0.28, y + 0.3), 0.05));
+    } },
+  { id: 'jawa', name: 'Jawa', group: 'Star Wars', desc: 'The glowing yellow eyes of a Jawa under the hood: soft, a little fuzzy, flickering now and then.',
+    frame(st, t, k) { const rng = rngOf(3000 + (k >> 2)); return { fl: rng() < 0.12 ? 0.55 + 0.3 * rng() : 1 }; },
+    px(x, y, r, a, t, f, o) { add(o, C(1, 0.85, 0.2), f.fl * (0.75 * gl_(r, 0.32) + 0.25 * gl_(r, 0.7))); add(o, C(1, 1, 0.8), f.fl * 0.4 * gl_(r, 0.12)); } },
+  { id: 'ghost', name: 'Force Ghost', group: 'Star Wars', desc: 'A Force ghost\'s eyes: pale blue light with soft wisps drifting and curling through it.',
+    px(x, y, r, a, t, f, o) {
+      const w = 0.5 + 0.5 * Math.sin(x * 5 + 2 * Math.sin(y * 4 - TAU * t) + TAU * t) * Math.cos(y * 6 + 1.5 * Math.sin(x * 3 + TAU * t));
+      add(o, C(0.55, 0.8, 1), 0.18 + 0.28 * w * w + 0.25 * gl_(r, 0.35) * (0.8 + 0.2 * Math.sin(TAU * 2 * t)));
+    } },
+  { id: 'holocron', name: 'Holocron', group: 'Star Wars', desc: 'A Jedi holocron turning in each eye: a glowing wireframe cube spinning in 3D, with light in its core.',
+    frame(st, t) {
+      const ay = TAU * t, ax = 0.6 + 0.25 * Math.sin(TAU * t), V = [];
+      for (const i of [0, 1]) for (const j of [0, 1]) for (const l of [0, 1]) {
+        let [X, Y, Z] = [i * 2 - 1, j * 2 - 1, l * 2 - 1].map(v => v * 0.38);
+        [X, Z] = [X * Math.cos(ay) + Z * Math.sin(ay), -X * Math.sin(ay) + Z * Math.cos(ay)];
+        [Y, Z] = [Y * Math.cos(ax) - Z * Math.sin(ax), Y * Math.sin(ax) + Z * Math.cos(ax)];
+        const s = 2.2 / (2.2 + Z); V.push([X * s, Y * s, Z]);
+      }
+      const E = []; for (let p = 0; p < 8; p++) for (let q = p + 1; q < 8; q++) if ([1, 2, 4].includes(p ^ q)) E.push([V[p], V[q]]);
+      return { E };
+    },
+    px(x, y, r, a, t, f, o) {
+      for (const [p, q] of f.E) { const d = segDist(x, y, p, q); if (d < 0.12) { const k = 0.75 - 0.25 * (p[2] + q[2]); add(o, C(0.35, 0.75, 1), k * (gl_(d, 0.022) + 0.3 * gl_(d, 0.07))); } }
+      add(o, C(0.5, 0.85, 1), 0.35 * gl_(r, 0.16) * (0.8 + 0.2 * Math.sin(TAU * 4 * t)));
+    } },
+  { id: 'suns', name: 'Twin Suns', group: 'Star Wars', desc: 'A binary sunset over the dunes of a desert world, reflected in each eye: two suns sinking, the sky shifting from gold to dusk.',
+    px(x, y, r, a, t, f, o) {
+      const s = 0.5 - 0.5 * Math.cos(TAU * t);                                                   // how far the suns have set (and risen again)
+      const hz = 0.25 + 0.05 * Math.sin(x * 6) + 0.03 * Math.sin(x * 13 + 1);                    // the dune line
+      if (y > hz) { add(o, C(0.35, 0.18, 0.06), 0.25 * (1 - s * 0.7) * (1 - 0.5 * sstep(hz, hz + 0.5, y))); return; }
+      const sky = sstep(-1, hz, y); add(o, [0.9 - 0.5 * s, 0.55 - 0.35 * s, 0.2 + 0.25 * s], 0.15 + 0.3 * sky * (1 - 0.6 * s));
+      const s1 = [-0.18, hz - 0.22 + 0.5 * s], s2 = [0.2, hz - 0.08 + 0.45 * s];
+      add(o, C(1, 0.9, 0.6), gl_(Math.hypot(x - s1[0], y - s1[1]), 0.1) * 0.9 + gl_(Math.hypot(x - s1[0], y - s1[1]), 0.3) * 0.25);
+      add(o, C(1, 0.65, 0.3), gl_(Math.hypot(x - s2[0], y - s2[1]), 0.07) * 0.9 + gl_(Math.hypot(x - s2[0], y - s2[1]), 0.22) * 0.2);
+    } },
+  { id: 'duel', name: 'Lightsaber Duel', group: 'Star Wars', desc: 'A blue and a red lightsaber clashing in each eye: the blades swing, lock with a burst of sparks, and part again.',
+    frame(st, t, k) {
+      const sw = Math.sin(TAU * 2 * t), a1 = -0.9 + 0.5 * sw, a2 = Math.PI + 0.9 - 0.5 * sw;
+      const lock = Math.max(0, Math.cos(TAU * 2 * t)) ** 8, rng = rngOf(4000 + k), sparks = [];
+      for (let i = 0; i < 8; i++) sparks.push([uni(rng, -0.25, 0.25), uni(rng, -0.25, 0.25)]);
+      return { b1: [[-0.75, 0.6], [-0.75 + 1.1 * Math.cos(a1), 0.6 + 1.1 * Math.sin(a1)]], b2: [[0.75, 0.6], [0.75 + 1.1 * Math.cos(a2), 0.6 + 1.1 * Math.sin(a2)]], lock, sparks };
+    },
+    px(x, y, r, a, t, f, o) {
+      const d1 = segDist(x, y, f.b1[0], f.b1[1]), d2 = segDist(x, y, f.b2[0], f.b2[1]);
+      add(o, C(0.3, 0.55, 1), 0.9 * gl_(d1, 0.06)); add(o, C(1, 1, 1), 0.7 * gl_(d1, 0.018));
+      add(o, C(1, 0.15, 0.1), 0.9 * gl_(d2, 0.06)); add(o, C(1, 1, 1), 0.7 * gl_(d2, 0.018));
+      if (f.lock > 0.05) { add(o, C(1, 0.9, 0.6), f.lock * 0.8 * gl_(Math.hypot(x, y + 0.05), 0.12)); for (const [sx, sy] of f.sparks) add(o, C(1, 0.8, 0.4), f.lock * 0.6 * gl_(Math.hypot(x - sx, y - 0.05 - sy), 0.025)); }
+    } },
+];
+
+// one eye texture frame: both eyes drawn (with the eased blink and a soft rim) into an N x N RGB buffer, rest black
+function eyeFrame(fx, st, N, k, F, out) {
+  const t = k / F, fds = st.map(s => fx.frame ? fx.frame(s.s, t, k) : null);
+  const o = [0, 0, 0], b = (t - 0.80) / 0.15, lid = b >= 0 && b <= 1 ? (s => -1.1 + 2.3 * s * s * (3 - 2 * s))(Math.min(1, Math.sin(Math.PI * b) * 1.35)) : -2;
+  out.fill(0);
+  EYE_DISCS.forEach(([cu, cv, R], e) => {
+    const x0 = Math.max(0, Math.floor((cu - R) * N)), x1 = Math.min(N - 1, Math.ceil((cu + R) * N)), y0 = Math.max(0, Math.floor((cv - R) * N)), y1 = Math.min(N - 1, Math.ceil((cv + R) * N));
+    for (let py = y0; py <= y1; py++) for (let px = x0; px <= x1; px++) {
+      const x = ((px + 0.5) / N - cu) / R, y = ((py + 0.5) / N - cv) / R, r = Math.hypot(x, y);
+      if (r >= 1) continue;
+      o[0] = o[1] = o[2] = 0; fx.px(x, y, r, fract(Math.atan2(y, x) / TAU), t, fds[e], o);
+      const m = clamp((1 - r) / 0.06, 0, 1) * clamp((y - lid) / 0.12, 0, 1), i = (py * N + px) * 3;
+      out[i] = clamp(o[0] * m, 0, 1) * 255; out[i + 1] = clamp(o[1] * m, 0, 1) * 255; out[i + 2] = clamp(o[2] * m, 0, 1) * 255;
+    }
+  });
+  return out;
+}
+const eyeState = fx => [0, 1].map(e => ({ s: fx.init ? fx.init(rngOf(11 + e)) : null }));
+
+// the eye texture loops every 5 seconds; resolution and frame rate are picked at export
+const EYE_LOOP = 5, EYE_RES = [128, 256, 512], EYE_FPS = [12, 20, 24, 30];
+
 // ---------------------------------------------------------------- settings
-const DEFAULTS = { pieces: { 'Belt & pouches': { on: true, color: '#d9d3c7' } }, skin: { on: true, color: '#8e5cc4' }, shimmer: true, living: true, eyeFx: 'iridescent', eyeVoice: true, eyeLight: true, eyeMeditate: true,
+const DEFAULTS = { pieces: { 'Belt & pouches': { on: true, color: '#d9d3c7' } }, skin: { on: true, color: '#8e5cc4' }, shimmer: true, living: true, eyeFx: 'iridescent', eyeRes: 256, eyeFps: 24, eyeVoice: true, eyeLight: true, eyeMeditate: true,
   clothMove: true, embroidery: true, crest: true, kyber: { on: true, color: '#4fd1ff' } };
 let S = JSON.parse(JSON.stringify(DEFAULTS));
 try { const s = JSON.parse(localStorage.getItem('jediEditor.v1') || 'null'); if (s) S = Object.assign(S, s); } catch (e) {}
@@ -185,6 +443,7 @@ let dirty = { outfit: true, head: true };
 function loop(ms) {
   if (dirty.outfit) { G.upload(G.tOutfit, previewPaint()); dirty.outfit = false; }
   if (dirty.head) { G.upload(G.tHead, headPaint()); dirty.head = false; }
+  eyePreview.update(ms); drawTiles(ms);
   draw(ms / 1000); requestAnimationFrame(loop);
 }
 
@@ -201,6 +460,44 @@ function row(parent, name, origColor, state, onChange, hiId) {
   sync(); parent.appendChild(r); return sync;
 }
 let syncs = [];
+// picker tiles: each draws its effect on the left eye (over the stock eye paint), 24 frames built a little at a time
+// while it is on screen, then replayed
+let tiles = [];
+const tileSeen = new IntersectionObserver(es => { for (const e of es) if (e.target._tile) e.target._tile.on = e.isIntersecting; });
+const TILE = 72, TILE_F = 24;
+function drawTiles(now) {
+  const until = performance.now() + 6, k = Math.floor(now / 1000 * 8) % TILE_F;
+  for (const tl of tiles) {
+    if (!tl.on) continue;
+    if (!tl.frames[k] && performance.now() < until) {
+      const img = new ImageData(TILE, TILE), d = img.data, o = [0, 0, 0], t = k / TILE_F, f = tl.fx.frame ? tl.fx.frame(tl.st[0].s, t, k * 5) : null;
+      for (let py = 0; py < TILE; py++) for (let px = 0; px < TILE; px++) {
+        const x = (px + 0.5) / TILE * 2 - 1, y = (py + 0.5) / TILE * 2 - 1, r = Math.hypot(x, y), i = (py * TILE + px) * 4, s = D.eyeStock[py * TILE + px];
+        o[0] = o[1] = o[2] = 0; if (r < 1) tl.fx.px(x, y, r, fract(Math.atan2(y, x) / TAU), t, f, o);
+        const m = clamp((1 - r) / 0.06, 0, 1);
+        d[i] = (s[0] + o[0] * m) * 255; d[i + 1] = (s[1] + o[1] * m) * 255; d[i + 2] = (s[2] + o[2] * m) * 255; d[i + 3] = r < 1.02 ? 255 : 0;
+      }
+      tl.frames[k] = img;
+    }
+    if (tl.frames[k]) tl.cv.getContext('2d').putImageData(tl.frames[k], 0, 0);
+  }
+}
+// the 3D view's eyes: the stock eye paint with the picked effect, 60 frames (one 5 s loop at 12 fps) built as needed
+const eyePreview = {
+  frames: [], st: null, fx: null, rgb: new Uint8Array(256 * 256 * 3), img: null,
+  reset() { this.frames = []; this.fx = EYE_FX.find(f => f.id === S.eyeFx) || null; this.st = this.fx && eyeState(this.fx); this.shown = -1; },
+  update(now) {
+    if (!this.fx) { if (this.shown !== 'stock') { G.upload(G.tEyes, D.eyesImg); this.shown = 'stock'; } return; }
+    const F = 60, k = Math.floor(now / 1000 * 12) % F;
+    if (!this.frames[k]) {
+      eyeFrame(this.fx, this.st, 256, k, F, this.rgb);
+      const img = new ImageData(256, 256), d = img.data, s = D.eyesPx;
+      for (let i = 0, j = 0; i < d.length; i += 4, j += 3) { d[i] = s[i] + this.rgb[j]; d[i + 1] = s[i + 1] + this.rgb[j + 1]; d[i + 2] = s[i + 2] + this.rgb[j + 2]; d[i + 3] = 255; }
+      this.frames[k] = img;
+    }
+    if (this.shown !== k) { G.upload(G.tEyes, this.frames[k]); this.shown = k; }
+  },
+};
 function toggle(parent, key, label, title, onChange) {   // an on/off option kept in S[key]
   const r = document.createElement('div'); r.className = 'row';
   r.innerHTML = `<input type="checkbox" id="c_${key}"><label for="c_${key}"></label>`;
@@ -224,17 +521,31 @@ function buildPanel() {
   toggle(B, 'living', 'Living scales', 'Every scale slowly flexes and tilts on its own, and the head spines and ear funnels sway in the light (in game, not in this preview)');
   const h = document.createElement('h2'); h.textContent = 'Eye effect'; h.style.marginTop = '14px'; B.appendChild(h);
   const grid = document.createElement('div'); grid.className = 'fxgrid'; B.appendChild(grid);
-  const pick = id => { S.eyeFx = id; save(); grid.querySelectorAll('.fx').forEach(x => x.classList.toggle('on', x.dataset.id === id)); document.getElementById('fxDesc').textContent = (D.fx.find(f => f.id === id) || { desc: 'The plain stock eyes, no animation.' }).desc; };
-  for (const f of [{ id: 'none', name: 'None' }, ...D.fx]) {
+  const pick = id => { S.eyeFx = id; save(); grid.querySelectorAll('.fx').forEach(x => x.classList.toggle('on', x.dataset.id === id)); document.getElementById('fxDesc').textContent = (EYE_FX.find(f => f.id === id) || { desc: 'The plain stock eyes, no animation.' }).desc; eyePreview.reset(); };
+  tiles = [];
+  let group = null;
+  for (const f of [{ id: 'none', name: 'None', group: 'Off' }, ...EYE_FX]) {
+    if (f.group !== group) { group = f.group; const g = document.createElement('div'); g.className = 'fxgroup'; g.textContent = group; grid.appendChild(g); }
     const b = document.createElement('button'); b.className = 'fx'; b.dataset.id = f.id; b.title = f.desc || 'No animation';
-    b.innerHTML = (f.id === 'none' ? '<span class="none">off</span>' : `<img src="${EYES + f.id}.gif" alt="" loading="lazy">`) + `<span>${f.name}</span>`;
+    b.innerHTML = (f.id === 'none' ? '<span class="none">off</span>' : '<canvas width="72" height="72"></canvas>') + `<span>${f.name}</span>`;
     b.onclick = () => pick(f.id); grid.appendChild(b);
+    if (f.id !== 'none') { const tile = { fx: f, cv: b.firstChild, frames: [], st: eyeState(f) }; tiles.push(tile); tileSeen.observe(b); b._tile = tile; }
   }
   toggle(B, 'eyeVoice', 'React when I talk', 'The eye effect brightens and speeds up with your voice');
   toggle(B, 'eyeMeditate', 'Meditate while typing', 'The eye effect slowly fades out while you type in chat, and comes back when you stop');
   toggle(B, 'eyeLight', 'Adjust to the light', 'The eyes dim in dark places and are brighter outdoors');
   const desc = document.createElement('p'); desc.id = 'fxDesc'; desc.className = 'note'; B.appendChild(desc);
-  pick(D.fx.some(f => f.id === S.eyeFx) ? S.eyeFx : 'none');
+  // export settings for the eye texture
+  const set = document.createElement('div'); set.className = 'eyeset';
+  set.innerHTML = `<label>Resolution <select id="eyeRes">${EYE_RES.map(v => `<option value="${v}">${v} × ${v}</option>`).join('')}</select></label>
+    <label>Frame rate <select id="eyeFps">${EYE_FPS.map(v => `<option value="${v}">${v} fps</option>`).join('')}</select></label><span id="eyeSize"></span>`;
+  B.appendChild(set);
+  const rs = set.querySelector('#eyeRes'), fs = set.querySelector('#eyeFps'), size = () => {
+    set.querySelector('#eyeSize').textContent = `${(eyeBytes(S.eyeRes, S.eyeFps * EYE_LOOP) / 1048576).toFixed(1)} MB, ${S.eyeFps * EYE_LOOP} frames`;
+  };
+  rs.value = S.eyeRes; fs.value = S.eyeFps; size();
+  rs.onchange = () => { S.eyeRes = +rs.value; save(); size(); }; fs.onchange = () => { S.eyeFps = +fs.value; save(); size(); };
+  pick(EYE_FX.some(f => f.id === S.eyeFx) ? S.eyeFx : 'none');
 }
 document.getElementById('btnReset').onclick = () => { S = JSON.parse(JSON.stringify(DEFAULTS)); save(); buildPanel(); dirty = { outfit: true, head: true }; flash('Back to the defaults.'); };
 
@@ -288,16 +599,30 @@ function boxDown(rgb, w, h, f) {
   return [out, nw, nh];
 }
 
+// a square DXT1 VTF with a full mip chain: levels[mip][frame] (mip 0 = full size); smallest mip first, frames in order
+function vtfBlob(size, levels) {
+  const hdr = new ArrayBuffer(80), dv = new DataView(hdr), F = levels[0].length;
+  [86, 84, 70, 0].forEach((ch, i) => dv.setUint8(i, ch));
+  dv.setUint32(4, 7, true); dv.setUint32(8, 2, true); dv.setUint32(12, 80, true); dv.setUint16(16, size, true); dv.setUint16(18, size, true);
+  dv.setUint32(20, 0, true); dv.setUint16(24, F, true); dv.setFloat32(32, 0.5, true); dv.setFloat32(36, 0.5, true); dv.setFloat32(40, 0.5, true); dv.setFloat32(48, 1.0, true);
+  dv.setUint32(52, 13, true); dv.setUint8(56, levels.length); dv.setUint32(57, 0xFFFFFFFF, true); dv.setUint16(63, 1, true);
+  return new Blob([new Uint8Array(hdr), ...levels.slice().reverse().flat()], { type: 'application/octet-stream' });
+}
+const mipsOf = (rgb, n) => { const out = []; for (let l = 0; ; l++) { const s = Math.max(1, n >> l); out.push(l ? encodeDXT1(boxDown(rgb, n, n, l)[0], s, s) : encodeDXT1(rgb, n, n)); if (s === 1) return out; } };
 function paintVTF(imgData) {
   const px = imgData.data, rgb = new Uint8Array(N * N * 3);
   for (let i = 0; i < N * N; i++) { rgb[i * 3] = px[i * 4]; rgb[i * 3 + 1] = px[i * 4 + 1]; rgb[i * 3 + 2] = px[i * 4 + 2]; }
-  const levels = []; for (let l = 0; ; l++) { const s = Math.max(1, N >> l); levels.push(l ? encodeDXT1(boxDown(rgb, N, N, l)[0], s, s) : encodeDXT1(rgb, N, N)); if (s === 1) break; }
-  const hdr = new ArrayBuffer(80), dv = new DataView(hdr);
-  [86, 84, 70, 0].forEach((ch, i) => dv.setUint8(i, ch));
-  dv.setUint32(4, 7, true); dv.setUint32(8, 2, true); dv.setUint32(12, 80, true); dv.setUint16(16, N, true); dv.setUint16(18, N, true);
-  dv.setUint32(20, 0, true); dv.setUint16(24, 1, true); dv.setFloat32(32, 0.5, true); dv.setFloat32(36, 0.5, true); dv.setFloat32(40, 0.5, true); dv.setFloat32(48, 1.0, true);
-  dv.setUint32(52, 13, true); dv.setUint8(56, levels.length); dv.setUint32(57, 0xFFFFFFFF, true); dv.setUint16(63, 1, true);
-  return new Blob([new Uint8Array(hdr), ...levels.reverse()], { type: 'application/octet-stream' });   // smallest mip first
+  return vtfBlob(N, mipsOf(rgb, N).map(m => [m]));
+}
+function eyeBytes(n, F) { let b = 80; for (let s = n; ; s = Math.max(1, s >> 1)) { b += Math.max(1, Math.ceil(s / 4)) ** 2 * 8 * F; if (s === 1) return b; } }
+// the picked eye effect at the picked resolution and frame rate, built a frame at a time so the page stays responsive
+async function eyeVTF(onProgress) {
+  const fx = EYE_FX.find(f => f.id === S.eyeFx), n = S.eyeRes, F = S.eyeFps * EYE_LOOP, st = eyeState(fx), rgb = new Uint8Array(n * n * 3), levels = [];
+  for (let k = 0; k < F; k++) {
+    mipsOf(eyeFrame(fx, st, n, k, F, rgb), n).forEach((m, l) => (levels[l] = levels[l] || []).push(m));
+    if (k % 3 === 2) { onProgress((k + 1) / F); await new Promise(r => setTimeout(r, 0)); }
+  }
+  return vtfBlob(n, levels);
 }
 async function upload(blob) {
   const r = await fetch(UPLOAD_URL, { method: 'POST', body: blob, headers: { 'content-type': 'application/octet-stream' } });
@@ -317,7 +642,7 @@ function lua(v, ind) {
   return '{\n' + keys.map(k => `${t}\t[${Array.isArray(v) ? k + 1 : JSON.stringify(k)}] = ${lua(v[k], ind + 1)},\n`).join('') + t + '}';
 }
 const part = (cls, name, props, kids = []) => ({ self: Object.assign({ ClassName: cls, Name: name, UniqueID: uid() }, props), children: kids });
-function outfitTxt(outfitUrl, headUrl) {
+function outfitTxt(outfitUrl, headUrl, eyeUrl) {
   const mats = [];
   const thread = S.embroidery || S.crest, kyber = outfitUrl && S.kyber.on;
   if (outfitUrl || S.clothMove || thread) {
@@ -339,7 +664,7 @@ function outfitTxt(outfitUrl, headUrl) {
      S.living && part('proxy', 'living scales', { VariableName: 'bumpframe', Additive: true, Expression: 'ftime()*20' })].filter(Boolean)));
   // the eyes can react: sensors for talking and typing, and an invisible light probe on the head whose proxy keeps
   // smoothed values (it reads its own last value back), as the visor outfit does
-  const extra = [], eyes = S.eyeFx !== 'none';
+  const extra = [], eyes = S.eyeFx !== 'none' && eyeUrl;
   const talking = part('event', 'sensor: talking', { Event: 'is_voice_chatting', Invert: false, AffectChildrenOnly: true });
   const typing = part('event', 'sensor: typing', { Event: 'is_typing', Invert: false, AffectChildrenOnly: true });
   const TALK = S.eyeVoice ? `if_event("${talking.self.UniqueID}", 1, 0)*min(1, voice_volume()*2.5)` : '0';
@@ -352,8 +677,8 @@ function outfitTxt(outfitUrl, headUrl) {
   if (eyes) {
     mats.push(part('material_3d', 'animated eyes', { MaterialOverride: 'eyes_rodian', basetexture: 'wgcwrp/heads/eyes_rodian',
       bumpmap: 'wgcwrp/heads/eyes_rodian_n', color2: vec([0.9, 0.9, 0.9]), halflambert: true, model: true, phong: true, phongboost: 1.7,
-      phongfresnelranges: vec([1, 0.8, 0]), phongalbedotint: true, detail: EYES_URL(S.eyeFx), detailblendmode: { lua: '5' }, detailblendfactor: 1, detailscale: 1, detailframe: { lua: '0' } },
-      [part('proxy', 'eye animation', { VariableName: 'detailframe', Additive: true, Extra1: TALK, Expression: 'ftime()*24*(1 + 0.8*var1())' }),
+      phongfresnelranges: vec([1, 0.8, 0]), phongalbedotint: true, detail: eyeUrl, detailblendmode: { lua: '5' }, detailblendfactor: 1, detailscale: 1, detailframe: { lua: '0' } },
+      [part('proxy', 'eye animation', { VariableName: 'detailframe', Additive: true, Extra1: TALK, Expression: `ftime()*${S.eyeFps}*(1 + 0.8*var1())` }),
        part('proxy', 'eye brightness', { VariableName: 'detailblendfactor', Extra1: TALK,
          Extra2: `extra2("${sense.self.UniqueID}")`, Extra3: `extra3("${sense.self.UniqueID}")`, Expression: '(1 + 0.6*var1())*var2()*var3()' })]));
     extra.push(talking, typing, part('sprite', 'eye light probe (invisible)', { Bone: 'head', Size: 0, Alpha: 0 }, [sense]));
@@ -370,7 +695,17 @@ document.getElementById('btnOutfit').onclick = async e => {
     flash('Building and uploading your textures…'); await new Promise(r => setTimeout(r, 30));
     const outfitUrl = anyPiece ? await upload(paintVTF(outfitPaint())) : null;
     const headUrl = S.skin.on ? await upload(paintVTF(headPaint())) : null;
-    download(new Blob([outfitTxt(outfitUrl, headUrl)], { type: 'text/plain' }), 'jedi_outfit.txt');
+    let eyeUrl = null;
+    if (S.eyeFx !== 'none') {   // the same effect + settings are only built and uploaded once
+      const key = [S.eyeFx, S.eyeRes, S.eyeFps, 1].join('|');
+      if (S.eyeUp && S.eyeUp.key === key) eyeUrl = S.eyeUp.url;
+      else {
+        const blob = await eyeVTF(v => flash(`Building the eye animation… ${Math.round(v * 100)}%`));
+        flash(`Uploading the eye animation (${(blob.size / 1048576).toFixed(1)} MB)…`);
+        eyeUrl = await upload(blob); S.eyeUp = { key, url: eyeUrl }; save();
+      }
+    }
+    download(new Blob([outfitTxt(outfitUrl, headUrl, eyeUrl)], { type: 'text/plain' }), 'jedi_outfit.txt');
     flash('Saved jedi_outfit.txt. Load it in PAC and click Wear.');
   } catch (err) { flash('Upload failed: ' + err.message + '. Try again.'); }
   finally { btn.disabled = false; }
@@ -380,9 +715,9 @@ document.getElementById('btnOutfit').onclick = async e => {
 (async () => {
   try {
     flash('Loading…');
-    const [fx, mesh, outfit, head, eyes, pieces, crystal, tEmb, tSym] = await Promise.all([fetch(EYES + 'effects.json', { cache: 'no-cache' }).then(r => r.json()), fetch(BASE + 'mesh.json', { cache: 'no-cache' }).then(r => r.json()),
+    const [mesh, outfit, head, eyes, pieces, crystal, tEmb, tSym] = await Promise.all([fetch(BASE + 'mesh.json', { cache: 'no-cache' }).then(r => r.json()),
       img(BASE + 'outfit.png'), img(BASE + 'head.png'), img(BASE + 'eyes.png'), img(BASE + 'pieces.png'), img(BASE + 'crystal.png'), img(BASE + 'cloth_emb.png'), img(BASE + 'cloth_sym.png')]);
-    D = { fx, pieces: mesh.pieces, outfit: pixels(outfit), head: pixels(head), outfitOut: new ImageData(N, N), headOut: new ImageData(N, N), previewOut: new ImageData(N, N),
+    D = { pieces: mesh.pieces, outfit: pixels(outfit), head: pixels(head), outfitOut: new ImageData(N, N), headOut: new ImageData(N, N), previewOut: new ImageData(N, N),
       crystal: pixels(crystal), threadEmb: pixels(tEmb).data, threadSym: pixels(tSym).data };
     const pm = pixels(pieces).data; D.piece = new Uint8Array(N * N); for (let p = 0; p < N * N; p++) D.piece[p] = pm[p * 4];
     // each piece's average colour and typical brightness (its shading is kept relative to that)
@@ -393,10 +728,18 @@ document.getElementById('btnOutfit').onclick = async e => {
     D.headAvg = hs.slice(0, 3).map(v => v / (N * N)); D.headRef = Math.max(8, hs[3] / (N * N));
     initGL(mesh);
     G.tOutfit = G.tex(D.outfit); G.tHead = G.tex(D.head); G.tEyes = G.tex(eyes); G.tPiece = G.tex(pieces, true);
+    const ec = document.createElement('canvas'); ec.width = ec.height = 256; const ex = ec.getContext('2d'); ex.drawImage(eyes, 0, 0, 256, 256);
+    D.eyesImg = ex.getImageData(0, 0, 256, 256); D.eyesPx = D.eyesImg.data;
+    const [cu, cv, R] = EYE_DISCS[0]; D.eyeStock = [];   // the left eye's stock paint, dimmed, at tile size
+    for (let py = 0; py < TILE; py++) for (let px = 0; px < TILE; px++) {
+      const sx = Math.min(255, Math.floor((cu + ((px + 0.5) / TILE * 2 - 1) * R) * 256)), sy = Math.min(255, Math.floor((cv + ((py + 0.5) / TILE * 2 - 1) * R) * 256)), i = (sy * 256 + sx) * 4;
+      D.eyeStock.push([D.eyesPx[i] / 255 * 0.55, D.eyesPx[i + 1] / 255 * 0.55, D.eyesPx[i + 2] / 255 * 0.55]);
+    }
+    eyePreview.reset();
     buildPanel(); flash(''); requestAnimationFrame(loop);
   } catch (err) { flash('Could not load the editor: ' + err.message); }
 })();
-window.__jedi = { S: () => S, outfitTxt, paintVTF, outfitPaint, headPaint };
+window.__jedi = { S: () => S, outfitTxt, paintVTF, outfitPaint, headPaint, eyeVTF, EYE_FX, eyeFrame, eyeState };
 </script>
 </body>
 </html>

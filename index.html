@@ -1893,9 +1893,12 @@ function helmetsIn(top, e) {
   const shown = (c, par) => ![c, ...par].some(x => x.self.Hide === true || x.self.NoDraw === true) && num(c.self.Size) !== 0 && num(c.self.Alpha) !== 0;
   const found = [], hidden = [];
   // an entity2 without a Model shows the wearer's own model: PAC notes the model an outfit was made on (ModelTracker)
-  const tracked = par => [...par].reverse().map(x => x.self.ModelTracker).find(Boolean) || (all.find(([x]) => x.self.ModelTracker) || [{ self: {} }])[0].self.ModelTracker;
+  // (only a model we know: PAC often just notes the generic "models/player.mdl", and then the editor's helmet model is the best guess)
+  const known = m => m && HM[slash(m)] ? m : null;
+  const tracked = par => known([...par].reverse().map(x => x.self.ModelTracker).find(known)) || known((all.find(([x]) => known(x.self.ModelTracker)) || [{ self: {} }])[0].self.ModelTracker);
   for (const [c, par] of all) {
     if (c.self.ClassName !== 'entity2' && c.self.ClassName !== 'model2') continue;
+    if (par.some(x => /^glowing visor/.test(x.self.Name || ''))) continue;   // an old stand-alone visor export, replaced by the merge
     const model = slash(c.self.Model) || (c.self.ClassName === 'entity2' ? slash(tracked(par) || e.model) : '');
     const list = (c.self.Materials || '').split(';');
     for (const [slot, mname, type, bt] of HM[model] || []) {

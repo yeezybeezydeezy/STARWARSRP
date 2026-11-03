@@ -297,6 +297,7 @@ const SCHEMA = [
     { k: 'topShade', label: 'Top-to-bottom fade', min: 0, max: 0.6, step: 0.01, def: 0.22 },
     { k: 'edgeAmt', label: 'Lit edge line', min: 0, max: 1, step: 0.01, def: 0.35 },
     { k: 'reflAmt', label: 'Glass reflection', min: 0, max: 1.5, step: 0.01, def: 0.5 },
+    { k: 'metalAmt', label: 'Metallic chrome', min: 0, max: 1.2, step: 0.01, def: 0 },
     { k: 'color2', type: 'color', label: 'Second colour', def: '#4E94E6', swatches: true },
     { k: 'gradAmt', label: 'Blend to second colour', min: 0, max: 1, step: 0.01, def: 0 },
     { k: 'gradDir', type: 'select', label: 'Blend direction', def: 'vertical', options: [['vertical', 'Top → bottom'], ['horizontal', 'Right → left'], ['radial', 'Centre → edges']] },
@@ -483,6 +484,7 @@ const PRESETS = {
   'Battle Ready': { b0: 0.95, fl: 0.9, su: 4, rimStrength: 1.25, rimVoice: 0.8, visorBright: 1.9 },
   'Screenshot Showcase': { b0: 1.05, fl: 0.8, rimStrength: 1.35, floor: 0.6, rimFloor: 0.3, visorBright: 2.0 },
   // ---- new looks: need the texture exported and hosted
+  'Chrome': { metalAmt: 0.95, base: 0.2, rimAmt: 0.15, lineAmt: 0, interf: 0, reflAmt: 0, coreAmt: 0.25, haloAmt: 0.1, trailAmt: 0, topShade: 0 },
   'Clean Glass': { lineAmt: 0, interf: 0, reflAmt: 0.35, coreAmt: 0.35, haloAmt: 0.18 },
   'Flat Matte': { topShade: 0, reflAmt: 0, edgeAmt: 0.18, rimAmt: 0.12, coreAmt: 0.16, coreW: 0.035, haloAmt: 0.22, haloW: 0.09, trailAmt: 0.10 },
   'CRT Holoscreen': { lineAmt: 0.45, lineSharp: 0.35, lineScroll: 2, scanBarAmt: 0.35, scanBarW: 0.03, noiseAmt: 0.08, interf: 0.08, coreAmt: 0.15, haloAmt: 0.1, trailAmt: 0.05 },
@@ -1117,9 +1119,18 @@ function makeShader(p, D) {
       trail = gx < 0 ? p.trailAmt * Math.exp(gx / 0.14) : 0;
     }
     const e = p.edgeAmt * D.edge[i], r = p.reflAmt * refl;
+    // metallic chrome: the world reflected in curved glass, sky over a horizon that bends with the glass
+    let sky = 0, band = 0, spot = 0;
+    if (p.metalAmt > 0) {
+      const rv = vn + 0.35 * (un - 0.5) * (un - 0.5), h0 = 0.47 + 0.03 * Math.sin(TAU * t);
+      sky = (rv < h0 ? 0.16 + 0.42 * Math.pow(1 - rv / h0, 0.7) : 0.03 + 0.04 * clamp((rv - h0) / 0.5, 0, 1)) + 0.25 * D.edge[i];   // deep tint, darker below
+      band = 0.75 * Math.exp(-(((rv - h0 + 0.02) / 0.02) ** 2));                                                                   // the horizon line
+      spot = 0.95 * Math.exp(-((un - 0.24) ** 2 / 0.002 + (vn - 0.22) ** 2 / 0.006));                                                // the sun
+      sky *= p.metalAmt; band *= p.metalAmt; spot *= p.metalAmt; glow *= 1 - 0.55 * Math.min(1, p.metalAmt);
+    }
     for (let k = 0; k < 3; k++) {
       const glass = 0.5 * BASE[k] + 0.5 * GW[k], coreC = 0.45 * BASE[k] + 0.55 * CW[k];
-      out[k] = clamp((glow * BASE[k] + e * EDGE[k] + r * glass + core * coreC + halo * BASE[k] + trail * BASE[k]
+      out[k] = clamp((glow * BASE[k] + sky * 1.4 * BASE[k] + band * (0.6 * BASE[k] + 0.4 * CW[k]) + spot * CW[k] + e * EDGE[k] + r * glass + core * coreC + halo * BASE[k] + trail * BASE[k]
         + bar * (0.5 * BASE[k] + 0.5 * CW[k]) + wave * coreC + ring * BASE[k] + hex * BASE[k]
         + fx * BASE[k] + fxHot * coreC + fxAlt * B2[k]) * gm * m, 0, 1);
     }
@@ -1751,7 +1762,7 @@ function buildOutfit(p) {
   const e = regOf(p), vmt = e.vmt || {};   // shading from the helmet's own material (Phase 2 keeps the approved values)
   const mat = {
     MaterialOverride: e.material, basetexture: p.blackVisor && p.paintFor === e.basetexture + '|2' && p.paintUrl ? p.paintUrl : e.basetexture,
-    bumpmap: p.finish === 'matte' && p.nmUrl ? p.nmUrl : HELMET.bumpmap,
+    bumpmap: p.finish === 'matte' && p.nmUrl && !(p.metalAmt > 0) ? p.nmUrl : HELMET.bumpmap,   // chrome keeps the glossy original
     color2: vmt.color2 ? new Vec(...vmt.color2) : new Vec(0.9, 0.9, 0.9), halflambert: true, model: true, nocull: true,
     phong: true, phongboost: vmt.phongboost ?? 1.7, phongexponent: f(vmt.phongexponent ?? 15), phongexponenttexture: vmt.phongexponenttexture ?? 'wgcwrp/shared/plain_exp',
     phongfresnelranges: vmt.phongfresnelranges ? new Vec(...vmt.phongfresnelranges) : new Vec(0.5, 0.5, 0), phongalbedotint: true,

@@ -106,6 +106,8 @@
   .findpac li { margin: 4px 0; }
   .findpac code { color: var(--text); background: #0e121a; border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; word-break: break-all; }
   .findpac .pathrow { display: flex; gap: 6px; align-items: center; margin-top: 4px; }
+  .findpac textarea { width: 100%; min-height: 70px; margin-top: 6px; font: 12px/1.35 Consolas, monospace; color: var(--text); background: #0e121a;
+    border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; resize: vertical; }
   .pickfoot { display: flex; justify-content: space-between; gap: 8px; font-size: 11.5px; }
   button, .btn { appearance: none; border: 1px solid var(--line); background: var(--panel); color: var(--text); padding: 7px 11px; border-radius: 8px; cursor: pointer; font: inherit; font-size: 13px; }
   button:hover { border-color: #33405a; }
@@ -201,6 +203,7 @@
         <div class="row" style="align-items:center;flex-wrap:nowrap">
           <button id="btnMerge" title="Keeps your PAC's own helmet paint and parts">Merge into my PAC…</button>
           <span class="sub" id="mergeInfo">Optional: load your existing outfit .txt and the visor gets added to it.</span>
+          <button id="btnCopyMerged" title="Copies your PAC with the visor merged in, to paste into PAC (load → load from clipboard)" hidden>Copy merged PAC</button>
           <button id="btnMergeClear" title="Stop merging" hidden>✕</button>
           <input type="file" id="fileMerge" accept=".txt" hidden>
         </div>
@@ -217,11 +220,24 @@
             <li>The <code>__backup</code> folders in there are PAC's automatic backups, if you need an older version.</li>
           </ol>
         </details>
+        <details class="findpac" id="pasteBox">
+          <summary>No files: copy and paste instead</summary>
+          <ol>
+            <li>In game, wear your outfit and open the PAC editor. In the menu you load and save outfits from, pick <b>to clipboard</b>.
+              (Not "copy uid": that only copies one part's ID.)</li>
+            <li>Click in the box below and press <b>Ctrl+V</b>. Your helmet is found right away.</li>
+            <li>Set up the visor, then click <b>Copy merged PAC</b> (next to Merge into my PAC).</li>
+            <li>In PAC, open the <b>top menu → load → load from clipboard</b>, press <b>Ctrl+V</b> and confirm. Your outfit comes back with the visor in it.</li>
+          </ol>
+          <textarea id="pacPaste" placeholder="Paste your PAC here (Ctrl+V)" spellcheck="false"></textarea>
+        </details>
       </div>
       <div class="row" style="margin:6px 0 8px">
         <button class="primary" id="btnOutfit">Download outfit (.txt)</button>
+        <button id="btnCopyOutfit" title="Copy instead of a file: paste it into PAC from its load menu">Copy outfit</button>
         <button class="primary" id="btnVtf">Download visor texture (.vtf)</button>
       </div>
+      <textarea id="copyOut" readonly hidden style="width:100%;min-height:70px;font:12px/1.35 Consolas,monospace;color:var(--text);background:#0e121a;border:1px solid var(--line);border-radius:8px;padding:6px 8px"></textarea>
       <div class="note" id="texNote" data-auto="You changed the visor's look. <b>Download outfit</b> builds and uploads the new visor texture for you first (takes a few seconds), and links it in the .txt.">You changed texture settings. Download the new <b>.vtf</b>, host it (see "Textures &amp; files"), and paste its link into <b>Visor texture link</b> before downloading the outfit, or other players won't see the change.</div>
       <details style="margin-top:8px"><summary>How to use the files</summary>
         <ol>
@@ -1695,7 +1711,7 @@ const uidOf = p => p.self.UniqueID;
 const stamp = () => { const d = new Date(), z = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())} ${z(d.getHours())}${z(d.getMinutes())}`; };
 const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 // what an export is: regiment, helmet, look and when, e.g. "41st Elite Corps Commander Gree · Radial Glow · 2026-11-03 1430"
-function exportLabel(p) { const e = regOf(p); return `${e.group} ${e.role} · ${p.lookName || 'custom'} · ${stamp()}`; }
+function exportLabel(p) { const e = regOf(p); return `${e.group} ${e.role} - ${p.lookName || 'custom'} - ${stamp()}`; }   // plain dashes: PAC shows names as typed
 const exportFile = (p, prefix) => [prefix, slug(regOf(p).group), slug(regOf(p).role), slug(p.lookName || 'custom'), stamp().replace(' ', '_')].filter(Boolean).join('_') + '.txt';
 function buildOutfit(p) {
   const talking = part('event', 'sensor: talking', { Event: 'is_voice_chatting', Invert: false, AffectChildrenOnly: true });
@@ -1757,7 +1773,7 @@ function buildOutfit(p) {
     Extra5: POWER,
     Expression: rc.map(c => `${num(c)}*var4()*var5()`).join(', ') }));
   if (p.texSource === 'local') kids.push(part('event', 'only you see this (local test texture)', { Event: 'viewed_by_owner', Invert: true }));
-  const outfit = [part('group', 'glowing visor · ' + exportLabel(p), { OwnerName: 'self' }, [
+  const outfit = [part('group', 'glowing visor - ' + exportLabel(p), { OwnerName: 'self' }, [
     part('entity2', 'trooper', {}, [part('material_3d', 'visor glow', mat, kids)]),
     talking, typing, ownView,
     part('sprite', 'light probe (invisible)', { Bone: 'head', Position: new Vec(7.56, -9.15, 0), Size: f(0), Alpha: f(0) }, [lightSensor, powerState, power]),
@@ -1895,7 +1911,8 @@ function helmetsIn(top, e) {
       else if (byOverride) Object.assign(hit, { kind: 'part', mat: byOverride, how: `your "${byOverride.self.Name || mname}" material` });
       else if (entry) Object.assign(hit, { kind: 'paint', entry, how: `the helmet on ${file} (with your own paint)` });
       else Object.assign(hit, { kind: 'stock', how: `the stock helmet on ${file}` });
-      hit.paint = hit.kind === 'part' ? (hit.mat.self.basetexture || bt) : hit.kind === 'paint' ? entry : bt;
+      const was = hit.kind === 'part' && tagOf(hit.mat);   // a material an earlier merge repainted: its original paint
+      hit.paint = hit.kind === 'part' ? ((was && was.was) || hit.mat.self.basetexture || bt) : hit.kind === 'paint' ? entry : bt;
       found.push(hit);
     }
   }
@@ -1904,6 +1921,7 @@ function helmetsIn(top, e) {
 // a paint the browser can load: a link (Dropbox share links go through Dropbox's direct host, which allows it) or a
 // stock paint the site hosts; null when it cannot be shown
 function paintSrc(paint) {
+  if (/\.vtf(\?|$)/i.test(paint)) return null;   // a game texture, not an image the page can show
   if (/^https?:/i.test(paint)) return paint.replace(/^https?:\/\/(www\.)?dropbox\.com\//i, 'https://dl.dropboxusercontent.com/').replace(/([?&])(dl|raw)=\d/, '$1').replace(/[?&]$/, '');
   return REG.textures[slash(paint)] || null;
 }
@@ -1988,7 +2006,7 @@ try { MERGE = JSON.parse(sessionStorage.getItem('visorMerge') || 'null'); } catc
 const keepMerge = () => { try { MERGE ? sessionStorage.setItem('visorMerge', JSON.stringify(MERGE)) : sessionStorage.removeItem('visorMerge'); } catch (e) {} };
 function showMerge() {
   const box = document.querySelector('.mergebox'), info = document.getElementById('mergeInfo');
-  box.classList.toggle('on', !!MERGE); document.getElementById('btnMergeClear').hidden = !MERGE;
+  box.classList.toggle('on', !!MERGE); document.getElementById('btnMergeClear').hidden = !MERGE; document.getElementById('btnCopyMerged').hidden = !MERGE;
   if (!MERGE) { info.textContent = 'Optional: load your existing outfit .txt and the visor gets added to it.'; return; }
   try { info.textContent = `${MERGE.name}: ${mergeVisor(MERGE.text, P).note}`; } catch (err) { info.textContent = `${MERGE.name}: ${err.message}.`; }
   const mt = mergeTarget();
@@ -2027,10 +2045,18 @@ document.getElementById('btnMergeClear').onclick = () => { MERGE = null; keepMer
 async function loadMergeFile(f) {
   if (!f) return;
   if (!/\.txt$/i.test(f.name)) { flash(`${f.name} isn't a PAC outfit: pick the .txt file from your pac3 folder.`); return; }
-  const text = await f.text();
-  try { PAC.parse(text); MERGE = { name: f.name, text }; } catch (err) { flash(`${f.name} is not a PAC outfit file.`); MERGE = null; }
+  loadMergeText(f.name, await f.text());
+}
+function loadMergeText(name, text) {
+  try { PAC.parse(text); MERGE = { name, text }; } catch (err) { flash(`${name} is not a PAC outfit file.`); MERGE = null; }
   keepMerge(); if (!(MERGE && followMergeHelmet())) showMerge();
 }
+document.getElementById('pacPaste').addEventListener('input', e => {
+  const text = e.target.value.trim(); if (!text) return;
+  if (/^"?[0-9a-f]{20,64}"?$/i.test(text)) { flash(`That's one part's ID (from "copy uid"), not your outfit. In PAC's load/save menu pick "to clipboard", then paste here.`); return; }
+  try { PAC.parse(text); } catch (err) { flash(`That isn't PAC outfit text. In PAC's load/save menu pick "to clipboard", then paste here.`); return; }
+  e.target.value = ''; loadMergeText('pasted_pac.txt', text); flash('Got your PAC from the clipboard.');
+});
 document.getElementById('fileMerge').onchange = e => { const f = e.target.files[0]; e.target.value = ''; loadMergeFile(f); };
 {
   const box = document.querySelector('.mergebox');
@@ -2100,17 +2126,45 @@ async function linkMergePaint(btn) {
     flash(`Could not black out your helmet paint (${err.message}); the merge goes ahead with it as it is.`); return true;
   } finally { btn.disabled = false; }
 }
+// clipboard exports. PAC's own menus: top menu -> load -> "load from clipboard" replaces the outfit; right-click an empty
+// spot in the part list -> load -> "load from clipboard" adds to it (right-click a part -> load would overwrite that part)
+const HOW_ADD = 'In PAC: right-click an empty spot in the part list → load → load from clipboard → Ctrl+V. It is added next to what you are wearing (don\'t right-click a part: that would overwrite it).';
+const HOW_REPLACE = 'In PAC: top menu → load → load from clipboard → Ctrl+V. It replaces what you are wearing with the merged version.';
+async function copyOut(text, how) {
+  const out = document.getElementById('copyOut');
+  try { await navigator.clipboard.writeText(text); out.hidden = true; flash('Copied. ' + how); }
+  catch (err) {   // the browser may refuse once uploads took a while: show it selected for Ctrl+C
+    out.value = text; out.hidden = false; out.focus(); out.select();
+    flash('Press Ctrl+C to copy it (selected below). ' + how);
+  }
+}
+// build the textures, then merge into the loaded PAC; the result becomes the base for the next helmet
+async function runMerge(btn) {
+  if (!await linkTexture(btn) || !await linkPaint(btn) || !await linkMergePaint(btn)) return null;
+  let r; try { r = mergeVisor(MERGE.text, P); } catch (err) { flash(`Could not merge into ${MERGE.name}: ${err.message}.`); return null; }
+  MERGE.text = r.text; keepMerge(); showMerge();
+  const left = [...new Map(mergeHelmets().map(h => [h.type, h])).keys()].filter(id => !mergedShapes(r.text).has(id));
+  r.more = left.length ? ` This PAC has ${left.length} more helmet${left.length > 1 ? 's' : ''}: pick it below and do this again for one PAC with every visor.` : '';
+  return r;
+}
+document.getElementById('btnCopyMerged').onclick = async e => {
+  const r = await runMerge(e.target); if (!r) return;
+  copyOut(r.text, `${r.note}${r.more} ` + HOW_REPLACE);
+};
+document.getElementById('btnCopyOutfit').onclick = async e => {
+  if (MERGE) return document.getElementById('btnCopyMerged').click();
+  if (!await linkTexture(e.target) || !await linkPaint(e.target)) return;
+  copyOut(buildOutfit(P), HOW_ADD);
+};
 document.getElementById('btnOutfit').onclick = async e => {
-  if (!await linkTexture(e.target) || !await linkPaint(e.target) || (MERGE && !await linkMergePaint(e.target))) return;
   if (MERGE) {
-    let r; try { r = mergeVisor(MERGE.text, P); } catch (err) { flash(`Could not merge into ${MERGE.name}: ${err.message}.`); return; }
+    const r = await runMerge(e.target); if (!r) return;
     const name = exportFile(P, MERGE.name.replace(/\.txt$/i, '').replace(/_visor_.*$/, '').replace(/[^\w\-]+/g, '_') + '_visor');
     download(new Blob([r.text], { type: 'text/plain' }), name);
-    MERGE.text = r.text; keepMerge(); showMerge();   // the next helmet's visor is added to this file
-    const left = [...new Map(mergeHelmets().map(h => [h.type, h])).keys()].filter(id => !mergedShapes(r.text).has(id));
-    flash(`Saved ${name}. ${r.note}${left.length ? ` This PAC has ${left.length} more helmet${left.length > 1 ? 's' : ''}: pick it below and download again for one file with every visor.` : ''} Put it in garrysmod\\data\\pac3\\ and load it from pac → load.`);
+    flash(`Saved ${name}. ${r.note}${r.more} Put it in garrysmod\\data\\pac3\\ and load it from pac → load.`);
     return;
   }
+  if (!await linkTexture(e.target) || !await linkPaint(e.target)) return;
   const name = exportFile(P, (P.outName || 'glowing_visor').replace(/[^\w\-]+/g, '_'));
   download(new Blob([buildOutfit(P)], { type: 'text/plain' }), name);
   flash('Saved ' + name + ' — put it in garrysmod\\data\\pac3\\ and load it from pac → load.');

@@ -51,9 +51,10 @@
     <div class="card"><h2>Cloth effects</h2><div id="cloth"></div></div>
     <div class="card"><h2>Rodian</h2><div id="body"></div></div>
     <div class="card">
-      <div class="btns"><button class="primary" id="btnOutfit">Download outfit (.txt)</button><button id="btnReset">Reset all</button></div>
+      <div class="btns"><button class="primary" id="btnOutfit">Download outfit (.txt)</button><button id="btnCopyOutfit" title="Copy instead of a file: paste it into PAC from its load menu">Copy outfit</button><button id="btnReset">Reset all</button></div>
+      <textarea id="copyOut" readonly hidden style="width:100%;min-height:70px;margin-top:8px;font:12px/1.35 Consolas,monospace;color:var(--text);background:#0b0e14;border:1px solid var(--line);border-radius:8px;padding:6px 8px"></textarea>
       <div id="msg"></div>
-      <p class="note">The outfit uploads your painted textures (1024×1024) and links them in the .txt. Put it in <code>garrysmod\data\pac3\</code>, load it in PAC, then Wear. Changes still need staff approval.</p>
+      <p class="note">The outfit uploads your painted textures (1024×1024) and links them. Either put the .txt in <code>garrysmod\data\pac3\</code> and load it in PAC, or click <b>Copy outfit</b> and in PAC right-click an empty spot in the part list → load → load from clipboard → Ctrl+V (it is added to what you are wearing). Then Wear. Changes still need staff approval.</p>
     </div>
   </div>
 </div>
@@ -647,9 +648,9 @@ const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, 
 // what an export is: eye effect, its resolution and frame rate, and when
 function exportLabel() {
   const fx = EYE_FX.find(f => f.id === S.eyeFx);
-  return `${fx ? `${fx.name}${/eyes$/i.test(fx.name) ? '' : ' eyes'} ${S.eyeRes}px ${S.eyeFps}fps` : 'stock eyes'} · ${stamp()}`;
+  return `${fx ? `${fx.name}${/eyes$/i.test(fx.name) ? '' : ' eyes'} ${S.eyeRes}px ${S.eyeFps}fps` : 'stock eyes'} - ${stamp()}`;   // plain dashes: PAC shows names as typed
 }
-const exportFile = () => ['jedi', slug(exportLabel().split(' · ')[0]), stamp().replace(' ', '_')].join('_') + '.txt';
+const exportFile = () => ['jedi', slug(exportLabel().split(' - ')[0]), stamp().replace(' ', '_')].join('_') + '.txt';
 function outfitTxt(outfitUrl, headUrl, eyeUrl) {
   const mats = [];
   const thread = S.embroidery || S.crest, kyber = outfitUrl && S.kyber.on;
@@ -691,15 +692,27 @@ function outfitTxt(outfitUrl, headUrl, eyeUrl) {
          Extra2: `extra2("${sense.self.UniqueID}")`, Extra3: `extra3("${sense.self.UniqueID}")`, Expression: '(1 + 0.6*var1())*var2()*var3()' })]));
     extra.push(talking, typing, part('sprite', 'eye light probe (invisible)', { Bone: 'head', Size: 0, Alpha: 0 }, [sense]));
   }
-  const outfit = [part('group', 'jedi outfit · ' + exportLabel(), { OwnerName: 'self' }, [part('entity2', 'jedi', {}, mats), ...extra])];
+  const outfit = [part('group', 'jedi outfit - ' + exportLabel(), { OwnerName: 'self' }, [part('entity2', 'jedi', {}, mats), ...extra])];
   return outfit.map((x, i) => `[${i + 1}] = ${lua(x, 0)},\n`).join('');
 }
 function download(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); }
-document.getElementById('btnOutfit').onclick = async e => {
-  const btn = e.target; btn.disabled = true;
+// clipboard exports. PAC's own menus: top menu -> load -> "load from clipboard" replaces the outfit; right-click an empty
+// spot in the part list -> load -> "load from clipboard" adds to it (right-click a part -> load would overwrite that part)
+const HOW_ADD = 'In PAC: right-click an empty spot in the part list → load → load from clipboard → Ctrl+V. It is added next to what you are wearing (don\'t right-click a part: that would overwrite it).';
+const HOW_REPLACE = 'In PAC: top menu → load → load from clipboard → Ctrl+V. It replaces what you are wearing with the merged version.';
+async function copyOut(text, how) {
+  const out = document.getElementById('copyOut');
+  try { await navigator.clipboard.writeText(text); out.hidden = true; flash('Copied. ' + how); }
+  catch (err) {   // the browser may refuse once uploads took a while: show it selected for Ctrl+C
+    out.value = text; out.hidden = false; out.focus(); out.select();
+    flash('Press Ctrl+C to copy it (selected below). ' + how);
+  }
+}
+// build every texture the outfit needs (uploading what changed) and the outfit text, or null
+async function buildExport() {
   try {
     const anyPiece = Object.values(S.pieces).some(p => p.on) || S.kyber.on;   // the crystal is painted into the outfit paint
-    if (!anyPiece && !S.skin.on && !S.shimmer && !S.living && !S.clothMove && !S.embroidery && !S.crest && S.eyeFx === 'none') { flash('Nothing is changed yet: pick a colour first.'); return; }
+    if (!anyPiece && !S.skin.on && !S.shimmer && !S.living && !S.clothMove && !S.embroidery && !S.crest && S.eyeFx === 'none') { flash('Nothing is changed yet: pick a colour first.'); return null; }
     flash('Building and uploading your textures…'); await new Promise(r => setTimeout(r, 30));
     const outfitUrl = anyPiece ? await upload(paintVTF(outfitPaint())) : null;
     const headUrl = S.skin.on ? await upload(paintVTF(headPaint())) : null;
@@ -714,11 +727,15 @@ document.getElementById('btnOutfit').onclick = async e => {
       }
     }
     const name = exportFile();
-    download(new Blob([outfitTxt(outfitUrl, headUrl, eyeUrl)], { type: 'text/plain' }), name);
-    flash(`Saved ${name}. Load it in PAC and click Wear.`);
-  } catch (err) { flash('Upload failed: ' + err.message + '. Try again.'); }
-  finally { btn.disabled = false; }
+    return { text: outfitTxt(outfitUrl, headUrl, eyeUrl), name };
+  } catch (err) { flash('Upload failed: ' + err.message + '. Try again.'); return null; }
+}
+const exportButton = act => async e => {
+  const btn = e.target; btn.disabled = true;
+  try { const r = await buildExport(); if (r) await act(r); } finally { btn.disabled = false; }
 };
+document.getElementById('btnOutfit').onclick = exportButton(r => { download(new Blob([r.text], { type: 'text/plain' }), r.name); flash(`Saved ${r.name}. Load it in PAC and click Wear.`); });
+document.getElementById('btnCopyOutfit').onclick = exportButton(r => copyOut(r.text, HOW_ADD));
 
 // ---------------------------------------------------------------- start
 (async () => {

@@ -435,6 +435,7 @@ const autoTex = p => p.texSource === 'url' && (TYPES.some(t => t.texUrl === p.te
 const DEFAULTS = Object.fromEntries(SCHEMA.flatMap(g => g.items.map(i => [i.k, i.def])));
 DEFAULTS.exQuality = 'high';
 DEFAULTS.regiment = '501st_enlisted';
+DEFAULTS.lookName = 'Current (v3)';
 for (const k of ['texUrl', 'rimUrl', 'nmUrl']) DEFAULTS[k] = HELMET[k];   // this helmet shape's hosted textures
 // default look: blue main #274A73 plus lighter/darker blues as accents (colours must match the regiment)
 const PRESETS = {
@@ -1368,8 +1369,32 @@ function encodeGIF(frames, w, h, delay) {
 // ---------------------------------------------------------------- preset gallery
 let activePreset = null, thumbs = [];
 const STATS = { thumbMs: 0, thumbMax: 0, viewMs: 0, viewMax: 0 };
+// presets are designed around the default blue: move their colours onto the regiment's own colour
+const COLOR_KEYS = ['color', 'color2', 'rimColor'];
+function rgb2hsl([r, g, b]) {
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+  if (!d) return [0, 0, l];
+  const s = d / (1 - Math.abs(2 * l - 1)), h = mx === r ? ((g - b) / d + 6) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [h / 6, s, l];
+}
+function hsl2hex([h, s, l]) {
+  const f = n => { const k = (n + h * 12) % 12, a = s * Math.min(l, 1 - l); return Math.round((l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1))) * 255); };
+  return '#' + [f(0), f(8), f(4)].map(v => v.toString(16).padStart(2, '0')).join('').toUpperCase();
+}
+function tintToward(hex, base) {
+  if (base.toUpperCase() === DEFAULTS.color.toUpperCase()) return hex;   // the 501st blue: exactly as designed
+  const [h, s, l] = rgb2hsl(hex2rgb(hex)), [h0, s0, l0] = rgb2hsl(hex2rgb(DEFAULTS.color)), [hb, sb, lb] = rgb2hsl(hex2rgb(base));
+  return hsl2hex([((hb + h - h0) % 1 + 1) % 1, clamp(sb * (s0 ? s / s0 : 1), 0, 1), clamp(lb + l - l0, 0, 1)]);
+}
+// a preset's full settings for the current helmet: defaults + the preset, coloured for the regiment
+function presetLook(pr) {
+  const q = Object.assign({}, DEFAULTS, pr), base = regOf(P).color;
+  for (const k of COLOR_KEYS) q[k] = tintToward(q[k], base);
+  return q;
+}
+function retintThumbs() { for (const th of thumbs) { th.P = presetLook(PRESETS[th.tile.dataset.name]); th.sh = makeShader(th.P); th.frames = []; th.work = null; th.last = null; } }
 function applyPreset(name) {
-  Object.assign(P, DEFAULTS, keepFiles(), PRESETS[name]); activePreset = name; save(); refresh();
+  Object.assign(P, presetLook(PRESETS[name]), keepFiles(), { lookName: name }); activePreset = name; save(); refresh();
   const tex = Object.keys(PRESETS[name]).some(k => TEX_KEYS.includes(k));
   flash(tex ? `${name}: new look — export the .vtf and host it to use it in-game.` : `${name}: outfit-only preset, just download the outfit.`);
 }
@@ -1436,7 +1461,7 @@ function buildUI() {
     tile.innerHTML = `<canvas width="${G.thumb.TW}" height="${G.thumb.TH}"></canvas><span class="trow"><span class="tname">${name}</span><span class="tag ${tex ? 'tex' : 'live'}">${tex ? 'texture' : 'outfit'}</span></span>`;
     tile.onclick = () => applyPreset(name);
     tiles.appendChild(tile);
-    const q = Object.assign({}, DEFAULTS, pr), ctx = tile.querySelector('canvas').getContext('2d');
+    const q = presetLook(pr), ctx = tile.querySelector('canvas').getContext('2d');
     thumbs.push({ P: q, sh: makeShader(q), ctx, img: ctx.createImageData(G.thumb.TW, G.thumb.TH), tile }); thumbSeen.observe(tile);
   }
   galRoot.innerHTML = ''; galRoot.appendChild(gal);
@@ -1465,7 +1490,8 @@ function surprise() {
     noiseAmt: chance(0.2) ? r(0.05, 0.2) : 0, glitchAmt: chance(0.15) ? r(0.2, 0.5) : 0, flickerAmt: chance(0.15) ? r(0.1, 0.4) : 0,
   });
   for (const g of SCHEMA) for (const it of g.items) if (!it.type && typeof P[it.k] === 'number') P[it.k] = +(Math.round(P[it.k] / it.step) * it.step).toFixed(4);
-  activePreset = null; save(); refresh(); flash('Random look. Export the texture if you want to keep it.');
+  for (const k of COLOR_KEYS) P[k] = tintToward(P[k], regOf(P).color);
+  P.lookName = 'surprise'; activePreset = null; save(); refresh(); flash('Random look. Export the texture if you want to keep it.');
 }
 function control(it) {
   const row = document.createElement('div'); row.className = 'ctl'; row.dataset.k = it.k;
@@ -1485,7 +1511,7 @@ function control(it) {
   }
   row.innerHTML = `<label for="${id}">${it.label}</label><div>${input}${it.swatches ? '<div class="swatches"></div>' : ''}</div>` + (it.type === 'text' ? '' : `<span class="val" title="Click to reset"></span>`);
   const el = row.querySelector('#' + id);
-  const set = v => { P[it.k] = v; activePreset = null; save(); refresh(); };
+  const set = v => { P[it.k] = v; activePreset = null; if (!/\(edited\)$|^custom$/.test(P.lookName || '')) P.lookName = (P.lookName || 'custom') + ' (edited)'; save(); refresh(); };
   el.addEventListener('input', () => {
     if (it.type === 'bool') set(el.value === '1'); else if (it.type === 'range' || !it.type) set(parseFloat(el.value)); else set(el.value);
   });
@@ -1611,7 +1637,7 @@ function pickRegiment(id) {
   if (r.type !== HELMET.id) {   // different helmet shape: its own hosted textures, then reload with its visor + mesh
     const t = typeOf(r); Object.assign(P, { texUrl: t.texUrl, rimUrl: t.rimUrl, nmUrl: t.nmUrl }); save(); location.reload(); return;
   }
-  save(); setHelmetTexture(); refresh();
+  save(); setHelmetTexture(); retintThumbs(); refresh();
   flash(`${r.group} · ${r.label}: helmet paint and ${r.color} glow colour applied. A new colour needs the texture exported and hosted.`);
 }
 document.getElementById('btnReset').onclick = () => { P = Object.assign({}, DEFAULTS, { regiment: P.regiment, color: regOf(P).color }); save(); refresh(); flash('Reset to the current (v3) visor.'); };
@@ -1645,6 +1671,11 @@ const f = v => ({ __float: true, v });
 function part(cls, name, props, children = []) { return { self: Object.assign({ ClassName: cls, Name: name, UniqueID: uidgen() }, props), children }; }
 const uidOf = p => p.self.UniqueID;
 
+const stamp = () => { const d = new Date(), z = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())} ${z(d.getHours())}${z(d.getMinutes())}`; };
+const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+// what an export is: regiment, helmet, look and when, e.g. "41st Elite Corps Commander Gree · Radial Glow · 2026-11-03 1430"
+function exportLabel(p) { const e = regOf(p); return `${e.group} ${e.role} · ${p.lookName || 'custom'} · ${stamp()}`; }
+const exportFile = (p, prefix) => [prefix, slug(regOf(p).group), slug(regOf(p).role), slug(p.lookName || 'custom'), stamp().replace(' ', '_')].filter(Boolean).join('_') + '.txt';
 function buildOutfit(p) {
   const talking = part('event', 'sensor: talking', { Event: 'is_voice_chatting', Invert: false, AffectChildrenOnly: true });
   const typing = part('event', 'sensor: typing', { Event: 'is_typing', Invert: false, AffectChildrenOnly: true });
@@ -1705,7 +1736,7 @@ function buildOutfit(p) {
     Extra5: POWER,
     Expression: rc.map(c => `${num(c)}*var4()*var5()`).join(', ') }));
   if (p.texSource === 'local') kids.push(part('event', 'only you see this (local test texture)', { Event: 'viewed_by_owner', Invert: true }));
-  const outfit = [part('group', 'glowing visor', { OwnerName: 'self' }, [
+  const outfit = [part('group', 'glowing visor · ' + exportLabel(p), { OwnerName: 'self' }, [
     part('entity2', 'trooper', {}, [part('material_3d', 'visor glow', mat, kids)]),
     talking, typing, ownView,
     part('sprite', 'light probe (invisible)', { Bone: 'head', Position: new Vec(7.56, -9.15, 0), Size: f(0), Alpha: f(0) }, [lightSensor, powerState, power]),
@@ -1872,12 +1903,12 @@ document.getElementById('btnOutfit').onclick = async e => {
   if (!await linkTexture(e.target) || !await linkPaint(e.target)) return;
   if (MERGE) {
     let r; try { r = mergeVisor(MERGE.text, P); } catch (err) { flash(`Could not merge into ${MERGE.name}: ${err.message}.`); return; }
-    const name = MERGE.name.replace(/\.txt$/i, '').replace(/[^\w\-]+/g, '_') + '_visor.txt';
+    const name = exportFile(P, MERGE.name.replace(/\.txt$/i, '').replace(/[^\w\-]+/g, '_') + '_visor');
     download(new Blob([r.text], { type: 'text/plain' }), name);
     flash(`Saved ${name}. ${r.note} Put it in garrysmod\\data\\pac3\\ and load it from pac → load.`);
     return;
   }
-  const name = (P.outName || 'glowing_visor').replace(/[^\w\-]+/g, '_') + '.txt';
+  const name = exportFile(P, (P.outName || 'glowing_visor').replace(/[^\w\-]+/g, '_'));
   download(new Blob([buildOutfit(P)], { type: 'text/plain' }), name);
   flash('Saved ' + name + ' — put it in garrysmod\\data\\pac3\\ and load it from pac → load.');
 };

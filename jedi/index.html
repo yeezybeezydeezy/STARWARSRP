@@ -642,6 +642,14 @@ function lua(v, ind) {
   return '{\n' + keys.map(k => `${t}\t[${Array.isArray(v) ? k + 1 : JSON.stringify(k)}] = ${lua(v[k], ind + 1)},\n`).join('') + t + '}';
 }
 const part = (cls, name, props, kids = []) => ({ self: Object.assign({ ClassName: cls, Name: name, UniqueID: uid() }, props), children: kids });
+const stamp = () => { const d = new Date(), z = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())} ${z(d.getHours())}${z(d.getMinutes())}`; };
+const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+// what an export is: eye effect, its resolution and frame rate, and when
+function exportLabel() {
+  const fx = EYE_FX.find(f => f.id === S.eyeFx);
+  return `${fx ? `${fx.name}${/eyes$/i.test(fx.name) ? '' : ' eyes'} ${S.eyeRes}px ${S.eyeFps}fps` : 'stock eyes'} · ${stamp()}`;
+}
+const exportFile = () => ['jedi', slug(exportLabel().split(' · ')[0]), stamp().replace(' ', '_')].join('_') + '.txt';
 function outfitTxt(outfitUrl, headUrl, eyeUrl) {
   const mats = [];
   const thread = S.embroidery || S.crest, kyber = outfitUrl && S.kyber.on;
@@ -683,7 +691,7 @@ function outfitTxt(outfitUrl, headUrl, eyeUrl) {
          Extra2: `extra2("${sense.self.UniqueID}")`, Extra3: `extra3("${sense.self.UniqueID}")`, Expression: '(1 + 0.6*var1())*var2()*var3()' })]));
     extra.push(talking, typing, part('sprite', 'eye light probe (invisible)', { Bone: 'head', Size: 0, Alpha: 0 }, [sense]));
   }
-  const outfit = [part('group', 'jedi outfit', { OwnerName: 'self' }, [part('entity2', 'jedi', {}, mats), ...extra])];
+  const outfit = [part('group', 'jedi outfit · ' + exportLabel(), { OwnerName: 'self' }, [part('entity2', 'jedi', {}, mats), ...extra])];
   return outfit.map((x, i) => `[${i + 1}] = ${lua(x, 0)},\n`).join('');
 }
 function download(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); }
@@ -705,8 +713,9 @@ document.getElementById('btnOutfit').onclick = async e => {
         eyeUrl = await upload(blob); S.eyeUp = { key, url: eyeUrl }; save();
       }
     }
-    download(new Blob([outfitTxt(outfitUrl, headUrl, eyeUrl)], { type: 'text/plain' }), 'jedi_outfit.txt');
-    flash('Saved jedi_outfit.txt. Load it in PAC and click Wear.');
+    const name = exportFile();
+    download(new Blob([outfitTxt(outfitUrl, headUrl, eyeUrl)], { type: 'text/plain' }), name);
+    flash(`Saved ${name}. Load it in PAC and click Wear.`);
   } catch (err) { flash('Upload failed: ' + err.message + '. Try again.'); }
   finally { btn.disabled = false; }
 };

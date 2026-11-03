@@ -1826,7 +1826,21 @@ const PAC = (() => {
 // Hidden slots (null / no_material in the list, a hidden or zero-size model) are skipped. The sensors and the light probe
 // go into the group around the first helmet. A merge we made before is undone first, so merging again replaces it.
 const VISOR_PARTS = new Set(['visor animation', 'visor comms glow', 'visor rim glow', 'sensor: talking', 'sensor: typing', 'sensor: my own view', 'light probe (invisible)', 'republic blast shield']);
-const MERGED_NOTE = 'visor merge: slot was ';
+const MERGED_NOTE = 'visor merge: slot was ';   // (merges from before helmet tags: read, never written)
+const TAG = 'visor merge ', PTAG = 'visor merge paint ';   // Notes on what a merge adds or changes: {shape, was?}
+const SENSOR_PARTS = new Set(['sensor: talking', 'sensor: typing', 'sensor: my own view', 'light probe (invisible)']);
+function tagOf(c) {
+  const n = c.self.Notes || '';
+  try {
+    if (n.startsWith(PTAG)) return Object.assign({ paint: true }, JSON.parse(n.slice(PTAG.length)));
+    if (n.startsWith(TAG)) return JSON.parse(n.slice(TAG.length));
+    if (n.startsWith(MERGED_NOTE)) return { was: JSON.parse(n.slice(MERGED_NOTE.length)) };
+    if (n.startsWith('visor merge: paint was ')) return { paint: true, was: JSON.parse(n.slice(23)) };
+  } catch (e) {}
+  return null;
+}
+// the helmet shapes a merged PAC already has a visor on
+const mergedShapes = text => { const s = new Set(); try { pacWalk(PAC.parse(text), c => { const tg = tagOf(c); if (tg && tg.shape) s.add(tg.shape); }); } catch (e) {} return s; };
 const HIDDEN_ENTRY = /^(null|no_?material|tools\/toolsnodraw|models\/effects\/|invis)/i;
 const slash = s => String(s || '').replace(/\\/g, '/').toLowerCase();
 const newUid = () => Array.from(crypto.getRandomValues(new Uint8Array(20)), x => x.toString(16).padStart(2, '0')).join('');
@@ -1880,36 +1894,47 @@ function mergeTarget() {
   try { return helmetsIn(PAC.parse(MERGE.text), regOf(P)).found.find(h => h.type === HELMET.id) || null; } catch (e) { return null; }
 }
 function mergeVisor(userText, p) {
-  const e = regOf(p), user = PAC.parse(userText), ours = PAC.parse(buildOutfit(p))[0];
+  const e = regOf(p), user = PAC.parse(userText), ours = PAC.parse(buildOutfit(p))[0], SHAPE = HELMET.id;
   const ourGlow = PAC.kids(PAC.kids(ours).find(c => c.self.ClassName === 'entity2')).find(c => c.self.Name === 'visor glow'), g = ourGlow.self;
   const isOurs = c => VISOR_PARTS.has(c.self.Name) || /^glowing visor/.test(c.self.Name || '') || (c.self.ClassName === 'material_3d' && /^visor glow/.test(c.self.Name || ''));
-  // undo an earlier merge: put back the Materials entries it replaced, then drop its parts
+  const thisShape = c => { const tg = tagOf(c); return !tg || !tg.shape || tg.shape === SHAPE; };   // untagged = an older single-helmet merge
+  const mine = c => isOurs(c) && !SENSOR_PARTS.has(c.self.Name) && thisShape(c);
+  // undo this helmet shape's earlier merge (other helmets' visors stay): Materials entries and paints it replaced, its parts
   const restore = {};
-  pacWalk(user, c => { const n = c.self.Notes || ''; if (isOurs(c) && n.startsWith(MERGED_NOTE)) restore[c.self.Name] = JSON.parse(n.slice(MERGED_NOTE.length)); });
+  pacWalk(user, c => { const tg = tagOf(c); if (mine(c) && tg && 'was' in tg && !tg.paint) restore[c.self.Name] = tg.was; });
   pacWalk(user, c => { if (c.self.Materials) c.self.Materials = c.self.Materials.split(';').map(x => x in restore ? restore[x] : x).join(';'); });
-  pacWalk(user, c => { const n = c.self.Notes || ''; if (n.startsWith(PAINT_NOTE)) { c.self.basetexture = JSON.parse(n.slice(PAINT_NOTE.length)); delete c.self.Notes; } });
-  const prune = list => list.filter(c => !isOurs(c)).map(c => { if (c.children) PAC.setKids(c, prune(PAC.kids(c))); return c; });
+  pacWalk(user, c => { const tg = tagOf(c); if (tg && tg.paint && thisShape(c)) { c.self.basetexture = tg.was; delete c.self.Notes; } });
+  const prune = list => list.filter(c => !mine(c)).map(c => { if (c.children) PAC.setKids(c, prune(PAC.kids(c))); return c; });
   let top = prune(user);
   const typeName = id => (TYPES.find(t => t.id === id) || { name: 'another' }).name, file = m => m.split('/').pop();
   const { found, hidden } = helmetsIn(top, e);
-  const hits = found.filter(h => h.type === HELMET.id), otherShape = found.filter(h => h.type !== HELMET.id).map(h => `${h.model.split('/').pop()} (${typeName(h.type)})`);
-  const extras = PAC.kids(ours).filter(c => c.self.ClassName !== 'entity2');
+  const hits = found.filter(h => h.type === SHAPE), otherShape = found.filter(h => h.type !== SHAPE).map(h => `${file(h.model)} (${typeName(h.type)})`);
   if (!hits.length) {
     if (otherShape.length) throw new Error(`the helmet in this PAC is ${otherShape[0]}, a different helmet shape: pick that helmet in the editor first, then merge`);
     top.push(ours);
     return { text: PAC.dump(top), note: `No helmet found in your PAC${hidden.length ? ' (only hidden ones)' : ''}, so the visor was added as its own part (it uses the stock ${e.group} paint on the helmet).` };
   }
+  // the sensors: reuse a set an earlier merge left (another helmet's visor uses it), pointing the new proxies at it
+  const sensors = []; pacWalk(top, c => { if (SENSOR_PARTS.has(c.self.Name)) sensors.push(c); });
+  const extras = PAC.kids(ours).filter(c => c.self.ClassName !== 'entity2'), uidMap = {};
+  const reuse = sensors.length === SENSOR_PARTS.size;
+  if (reuse) {
+    const old = {}; sensors.forEach(s => pacWalk([s], c => { old[c.self.Name] = c.self.UniqueID; }));
+    extras.forEach(x => pacWalk([x], c => { if (old[c.self.Name]) uidMap[c.self.UniqueID] = old[c.self.Name]; }));
+  } else top = prune2Sensors(top);
+  const pointAt = part => { let s = JSON.stringify(part); for (const [a, b] of Object.entries(uidMap)) s = s.split(a).join(b); return JSON.parse(s); };
+  const tag = (part, more) => { pacWalk([part], c => { c.self.Notes = TAG + JSON.stringify({ shape: SHAPE }); }); if (more) part.self.Notes = TAG + JSON.stringify(Object.assign({ shape: SHAPE }, more)); return part; };
 
   const done = new Set(); let first = true;
-  const glowKids = () => { const k = PAC.kids(ourGlow).map(clonePart); if (!first) k.forEach(freshIds); return k; };
+  const glowKids = () => { const k = PAC.kids(ourGlow).map(c => tag(pointAt(clonePart(c)))); if (!first) k.forEach(freshIds); return k; };
   const groupOf = h => [...h.par].reverse().find(x => x.self.ClassName === 'group');
   const placeBeside = (h, part) => { const home = groupOf(h); if (home) PAC.setKids(home, PAC.kids(home).concat([part])); else top.push(part); };
   for (const h of hits) {
     if (h.kind === 'part') {
       if (done.has(h.mat)) continue; done.add(h.mat);
-      const m = h.mat.self, black = (p.customBlack || {})[h.paint + '|' + HELMET.id];
+      const m = h.mat.self, black = (p.customBlack || {})[h.paint + '|' + SHAPE];
       if (slash(m.basetexture) === slash(e.basetexture) && g.basetexture !== e.basetexture) m.basetexture = g.basetexture;   // stock paint -> its blacked copy
-      else if (black && m.basetexture) { m.Notes = PAINT_NOTE + JSON.stringify(m.basetexture); m.basetexture = black; }   // your paint -> its blacked copy
+      else if (black && m.basetexture) { m.Notes = PTAG + JSON.stringify({ shape: SHAPE, was: m.basetexture }); m.basetexture = black; }   // your paint -> its blacked copy
       for (const k of ['detail', 'detailblendmode', 'detailblendfactor', 'detailscale', 'detailframe', 'detailtexturetransformScale',
         'detailtexturetransformPosition', 'selfillum', 'selfillummask', 'selfillumtint']) if (k in g) m[k] = g[k];
       if ('detailtexturetransformAngle' in m) m.detailtexturetransformAngle = { raw: '0' };
@@ -1917,23 +1942,26 @@ function mergeVisor(userText, p) {
       PAC.setKids(h.mat, PAC.kids(h.mat).concat(glowKids()));
     } else {
       const mat = clonePart(ourGlow); PAC.setKids(mat, glowKids()); mat.self.UniqueID = newUid();
-      mat.self.Name = `visor glow (${(h.c.self.Name || file(h.model)).replace(/[;"]/g, '')})`;
+      mat.self.Name = `visor glow (${(h.c.self.Name || file(h.model)).replace(/[;"]/g, '')}, ${typeName(SHAPE)})`;
       if (h.kind === 'paint') {   // the paint from the Materials list moves into a material part the list now names
-        Object.assign(mat.self, { MaterialOverride: 'all', basetexture: (p.customBlack || {})[h.entry + '|' + HELMET.id] || h.entry, Notes: MERGED_NOTE + JSON.stringify(h.entry) });
+        Object.assign(mat.self, { MaterialOverride: 'all', basetexture: (p.customBlack || {})[h.entry + '|' + SHAPE] || h.entry });
+        tag({ self: mat.self, children: {} }, { was: h.entry });
         h.list[h.slot] = mat.self.Name; h.c.self.Materials = h.list.join(';');
         placeBeside(h, mat);
       } else {                    // stock paint: override that slot's material on that model
         Object.assign(mat.self, { MaterialOverride: h.mname, basetexture: slash(h.bt) === slash(e.basetexture) ? g.basetexture : h.bt });
+        tag({ self: mat.self, children: {} }, {});
         PAC.setKids(h.c, PAC.kids(h.c).concat([mat]));
       }
     }
     first = false;
   }
-  const home = groupOf(hits[0]);
-  if (home) PAC.setKids(home, PAC.kids(home).concat(extras)); else top = top.concat(extras);
+  if (!reuse) { const home = groupOf(hits[0]); if (home) PAC.setKids(home, PAC.kids(home).concat(extras)); else top = top.concat(extras); }
   const where = [...new Set(hits.map(h => h.how))].join(' and ');
   return { text: PAC.dump(top), note: `Visor goes onto ${where}${hidden.length ? `; ${hidden.length} hidden helmet slot${hidden.length > 1 ? 's' : ''} skipped` : ''}. The rest of your PAC stays as it is.` };
 }
+// an incomplete set of sensors (from an older merge) is replaced by a fresh one
+const prune2Sensors = list => list.filter(c => !SENSOR_PARTS.has(c.self.Name)).map(c => { if (c.children) PAC.setKids(c, prune2Sensors(PAC.kids(c))); return c; });
 
 let MERGE = null;   // { name, text } of the loaded outfit; kept for this tab so a helmet-shape change (page reload) keeps it
 try { MERGE = JSON.parse(sessionStorage.getItem('visorMerge') || 'null'); } catch (e) {}
@@ -1949,9 +1977,11 @@ function showMerge() {
   const shapes = [...new Map(mergeHelmets().map(h => [h.type, h])).values()];
   if (shapes.length > 1) {
     const row = document.createElement('div'); row.className = 'row'; row.style.marginTop = '6px';
-    row.append('This PAC has more than one helmet. Visor on: ');
+    row.append('This PAC has more than one helmet. Work on: ');
+    const has = mergedShapes(MERGE.text);
     for (const h of shapes) {
-      const b = document.createElement('button'); b.textContent = `${(TYPES.find(x => x.id === h.type) || {}).name} (${h.how.replace(/^your /, '')})`;
+      const b = document.createElement('button'); b.textContent = `${has.has(h.type) ? '✓ ' : ''}${(TYPES.find(x => x.id === h.type) || {}).name} (${h.how.replace(/^your /, '')})`;
+      b.title = has.has(h.type) ? 'Already has a visor in this file (downloading on it again replaces it)' : 'No visor yet';
       b.className = h.type === HELMET.id ? 'on' : ''; b.disabled = h.type === HELMET.id; b.onclick = () => useHelmet(h); row.append(b);
     }
     info.append(row);
@@ -2041,9 +2071,11 @@ document.getElementById('btnOutfit').onclick = async e => {
   if (!await linkTexture(e.target) || !await linkPaint(e.target) || (MERGE && !await linkMergePaint(e.target))) return;
   if (MERGE) {
     let r; try { r = mergeVisor(MERGE.text, P); } catch (err) { flash(`Could not merge into ${MERGE.name}: ${err.message}.`); return; }
-    const name = exportFile(P, MERGE.name.replace(/\.txt$/i, '').replace(/[^\w\-]+/g, '_') + '_visor');
+    const name = exportFile(P, MERGE.name.replace(/\.txt$/i, '').replace(/_visor_.*$/, '').replace(/[^\w\-]+/g, '_') + '_visor');
     download(new Blob([r.text], { type: 'text/plain' }), name);
-    flash(`Saved ${name}. ${r.note} Put it in garrysmod\\data\\pac3\\ and load it from pac → load.`);
+    MERGE.text = r.text; keepMerge(); showMerge();   // the next helmet's visor is added to this file
+    const left = [...new Map(mergeHelmets().map(h => [h.type, h])).keys()].filter(id => !mergedShapes(r.text).has(id));
+    flash(`Saved ${name}. ${r.note}${left.length ? ` This PAC has ${left.length} more helmet${left.length > 1 ? 's' : ''}: pick it below and download again for one file with every visor.` : ''} Put it in garrysmod\\data\\pac3\\ and load it from pac → load.`);
     return;
   }
   const name = exportFile(P, (P.outName || 'glowing_visor').replace(/[^\w\-]+/g, '_'));

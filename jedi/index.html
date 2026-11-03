@@ -651,6 +651,16 @@ function exportLabel() {
   return `${fx ? `${fx.name}${/eyes$/i.test(fx.name) ? '' : ' eyes'} ${S.eyeRes}px ${S.eyeFps}fps` : 'stock eyes'} - ${stamp()}`;   // plain dashes: PAC shows names as typed
 }
 const exportFile = () => ['jedi', slug(exportLabel().split(' - ')[0]), stamp().replace(' ', '_')].join('_') + '.txt';
+// the eyes' shine follows the blink: this proxy counts frames exactly as the eye animation does (same rate, same
+// speed-up while talking), works out where the lid is with the same eased curve the eye effects draw it with
+// (eyeFrame in the eye effects), and turns the gloss down by how much of the eye the lid covers
+function blinkShine(fps, frames, talk) {
+  return part('proxy', 'eye shine follows the blink', { VariableName: 'phongboost', Extra1: talk,
+    Extra2: `(var2() or 0) + ftime()*${fps}*(1 + 0.8*var1())`,
+    Extra3: `clamp(((floor(var2()) % ${frames}) / ${frames} - 0.8) / 0.15, 0, 1)`,   // whole frames, as the texture shows them
+    Extra4: 'min(1, sin(PI*var3())*1.35)',
+    Expression: '1.7*(1 - clamp((2.3*var4()*var4()*(3 - 2*var4()) - 0.1)/2, 0, 1))' });
+}
 function outfitTxt(outfitUrl, headUrl, eyeUrl) {
   const mats = [];
   const thread = S.embroidery || S.crest, kyber = outfitUrl && S.kyber.on;
@@ -688,6 +698,7 @@ function outfitTxt(outfitUrl, headUrl, eyeUrl) {
       bumpmap: 'wgcwrp/heads/eyes_rodian_n', color2: vec([0.9, 0.9, 0.9]), halflambert: true, model: true, phong: true, phongboost: 1.7,
       phongfresnelranges: vec([1, 0.8, 0]), phongalbedotint: true, detail: eyeUrl, detailblendmode: { lua: '5' }, detailblendfactor: 1, detailscale: 1, detailframe: { lua: '0' } },
       [part('proxy', 'eye animation', { VariableName: 'detailframe', Additive: true, Extra1: TALK, Expression: `ftime()*${S.eyeFps}*(1 + 0.8*var1())` }),
+       blinkShine(S.eyeFps, S.eyeFps * EYE_LOOP, TALK),
        part('proxy', 'eye brightness', { VariableName: 'detailblendfactor', Extra1: TALK,
          Extra2: `extra2("${sense.self.UniqueID}")`, Extra3: `extra3("${sense.self.UniqueID}")`, Expression: '(1 + 0.6*var1())*var2()*var3()' })]));
     extra.push(talking, typing, part('sprite', 'eye light probe (invisible)', { Bone: 'head', Size: 0, Alpha: 0 }, [sense]));

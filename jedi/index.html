@@ -58,6 +58,7 @@ const BASE = location.href.replace(/[^/]*$/, '');                      // jedi/ 
 const RAW = 'https://yeezybeezydeezy.github.io/STARWARSRP/';
 const UPLOAD_URL = 'https://visor-upload.yeezybeezydeezy.workers.dev/upload';
 const EYES = BASE + '../rodian/eyes/';                               // eye effects: <id>.vtf (24 fps, 120 frames) + <id>.gif preview
+const SHIMMER_URL = RAW + 'rodian/head_scales_shimmer.vtf';   // 120 frames at 24 fps, added to the paint before lighting
 const EYES_URL = id => RAW + 'rodian/eyes/' + id + '.vtf';
 const N = 1024;
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -65,7 +66,7 @@ const hex2rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
 const rgb2hex = c => '#' + c.map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
 
 // ---------------------------------------------------------------- settings
-const DEFAULTS = { pieces: { 'Belt & pouches': { on: true, color: '#d9d3c7' } }, skin: { on: true, color: '#8e5cc4' }, eyeFx: 'iridescent' };
+const DEFAULTS = { pieces: { 'Belt & pouches': { on: true, color: '#d9d3c7' } }, skin: { on: true, color: '#8e5cc4' }, shimmer: true, eyeFx: 'iridescent' };
 let S = JSON.parse(JSON.stringify(DEFAULTS));
 try { const s = JSON.parse(localStorage.getItem('jediEditor.v1') || 'null'); if (s) S = Object.assign(S, s); } catch (e) {}
 if ('eyes' in S) { if (!S.eyes) S.eyeFx = 'none'; delete S.eyes; }   // older saves: a plain on/off
@@ -187,6 +188,9 @@ function buildPanel() {
     syncs.push(row(P, name, rgb2hex(D.avg[k]), st, () => { dirty.outfit = true; save(); }, k + 1));
   });
   row(B, 'Skin colour', rgb2hex(D.headAvg), S.skin, () => { dirty.head = true; save(); });
+  const sh = document.createElement('div'); sh.className = 'row';
+  sh.innerHTML = `<input type="checkbox" id="c_shimmer"><label for="c_shimmer" title="A soft band of sheen rolls over the scales every few seconds (in game, not in this preview)">Shimmering scales</label>`;
+  sh.firstChild.checked = S.shimmer; sh.firstChild.onchange = e => { S.shimmer = e.target.checked; save(); }; B.appendChild(sh);
   const h = document.createElement('h2'); h.textContent = 'Eye effect'; h.style.marginTop = '14px'; B.appendChild(h);
   const grid = document.createElement('div'); grid.className = 'fxgrid'; B.appendChild(grid);
   const pick = id => { S.eyeFx = id; save(); grid.querySelectorAll('.fx').forEach(x => x.classList.toggle('on', x.dataset.id === id)); document.getElementById('fxDesc').textContent = (D.fx.find(f => f.id === id) || { desc: 'The plain stock eyes, no animation.' }).desc; };
@@ -284,8 +288,10 @@ function outfitTxt(outfitUrl, headUrl) {
   if (outfitUrl) mats.push(part('material_3d', 'clothing colours', { MaterialOverride: 'jedi_initiate', basetexture: outfitUrl,
     bumpmap: 'hazel/jedi_order/initiate/jedi_initiate_n', halflambert: true, model: true, phong: true, phongboost: 1.5, phongexponent: 10,
     phongexponenttexture: 'wgcwrp/shared/plain_exp', phongfresnelranges: vec([0.3, 0.7, 1]), phongalbedotint: true, rimlight: true, rimlightboost: 1, rimlightexponent: 0.5 }));
-  if (headUrl) mats.push(part('material_3d', 'rodian skin', { MaterialOverride: 'head_rodian', basetexture: headUrl,
-    bumpmap: 'wgcwrp/heads/head_rodian_n', halflambert: true, model: true, phong: true }));
+  if (headUrl || S.shimmer) mats.push(part('material_3d', 'rodian skin', Object.assign({ MaterialOverride: 'head_rodian', basetexture: headUrl || 'wgcwrp/heads/head_rodian',
+    bumpmap: 'wgcwrp/heads/head_rodian_n', halflambert: true, model: true, phong: true },
+    S.shimmer ? { detail: SHIMMER_URL, detailblendmode: { lua: '1' }, detailblendfactor: 1, detailscale: 1, detailframe: { lua: '0' } } : {}),
+    S.shimmer ? [part('proxy', 'scale shimmer', { VariableName: 'detailframe', Additive: true, Expression: 'ftime()*24' })] : []));
   if (S.eyeFx !== 'none') mats.push(part('material_3d', 'animated eyes', { MaterialOverride: 'eyes_rodian', basetexture: 'wgcwrp/heads/eyes_rodian',
     bumpmap: 'wgcwrp/heads/eyes_rodian_n', color2: vec([0.9, 0.9, 0.9]), halflambert: true, model: true, phong: true, phongboost: 1.7,
     phongfresnelranges: vec([1, 0.8, 0]), phongalbedotint: true, detail: EYES_URL(S.eyeFx), detailblendmode: { lua: '5' }, detailblendfactor: 1, detailscale: 1, detailframe: { lua: '0' } },
@@ -298,7 +304,7 @@ document.getElementById('btnOutfit').onclick = async e => {
   const btn = e.target; btn.disabled = true;
   try {
     const anyPiece = Object.values(S.pieces).some(p => p.on);
-    if (!anyPiece && !S.skin.on && S.eyeFx === 'none') { flash('Nothing is changed yet: pick a colour first.'); return; }
+    if (!anyPiece && !S.skin.on && !S.shimmer && S.eyeFx === 'none') { flash('Nothing is changed yet: pick a colour first.'); return; }
     flash('Building and uploading your textures…'); await new Promise(r => setTimeout(r, 30));
     const outfitUrl = anyPiece ? await upload(paintVTF(outfitPaint())) : null;
     const headUrl = S.skin.on ? await upload(paintVTF(headPaint())) : null;

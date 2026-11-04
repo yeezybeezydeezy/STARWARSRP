@@ -7,6 +7,7 @@
 <style>
   :root { --bg: #0c0f15; --panel: #141922; --line: #222a37; --text: #dfe5ee; --muted: #8592a5; --accent: #4e94e6; --accent2: #274a73; }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 14px/1.45 "Segoe UI", system-ui, sans-serif; }
   header { display: flex; align-items: center; gap: 14px; padding: 12px 20px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
   header h1 { margin: 0; font-size: 18px; }
@@ -15,48 +16,73 @@
   .suitenav a { padding: 5px 11px; border-radius: 7px; color: #8592a5; text-decoration: none; font-size: 13px; font-weight: 600; white-space: nowrap; }
   .suitenav a:hover { color: #dfe5ee; background: #1a2130; }
   .suitenav a.on { background: #274a73; color: #fff; }
-  .app { display: grid; grid-template-columns: 250px minmax(0, 1fr) 320px; gap: 14px; padding: 14px; height: calc(100vh - 58px); min-height: 560px; }
-  .col { display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow: auto; }
+  .app { display: grid; grid-template-columns: 270px minmax(0, 1fr) 330px; gap: 12px; padding: 12px; height: calc(100vh - 58px); min-height: 600px; }
+  .col { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow: auto; }
   .view { position: relative; background: #0b0e14; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; min-height: 0; }
   .view canvas { width: 100%; height: 100%; display: block; touch-action: none; }
-  .hint { position: absolute; left: 12px; bottom: 10px; color: var(--muted); font-size: 12px; pointer-events: none; }
-  .viewtools { position: absolute; right: 10px; top: 10px; display: flex; gap: 6px; }
+  .view canvas.cross { cursor: crosshair; }
+  .hint { position: absolute; left: 12px; bottom: 10px; color: var(--muted); font-size: 12px; pointer-events: none; text-shadow: 0 1px 2px #000; }
+  .viewtools { position: absolute; left: 10px; right: 10px; top: 10px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; pointer-events: none; }
+  .viewtools > * { pointer-events: auto; }
+  .viewtools select { width: auto; font-size: 12px; padding: 4px 6px; }
+  .viewtools .chk { background: #10141cdd; border: 1px solid var(--line); border-radius: 8px; padding: 3px 8px; margin: 0; font-size: 12px; }
+  .seg { display: flex; gap: 2px; background: #10141c; border: 1px solid var(--line); border-radius: 8px; padding: 2px; }
+  .seg button { padding: 3px 9px; font-size: 12px; border: 0; border-radius: 6px; background: none; }
+  .seg button.on { background: var(--accent2); }
   .loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); pointer-events: none; }
-  .loading[hidden], .card[hidden] { display: none; }
-  #cursor { position: absolute; border: 1.5px solid rgba(255,255,255,.8); border-radius: 50%; pointer-events: none; box-shadow: 0 0 0 1px rgba(0,0,0,.6); display: none; }
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
-  .card h2 { margin: 0 0 8px; font-size: 13px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .6px; display: flex; align-items: center; gap: 8px; }
+  #cursor { position: absolute; border: 1.5px solid rgba(255,255,255,.85); border-radius: 50%; pointer-events: none; box-shadow: 0 0 0 1px rgba(0,0,0,.6); display: none; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 11px 13px; }
+  .card h2 { margin: 0 0 8px; font-size: 12.5px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .6px; display: flex; align-items: center; gap: 6px; }
   .card h2 .grow { flex: 1; }
-  label.f { display: grid; grid-template-columns: 74px minmax(0, 1fr) 38px; gap: 8px; align-items: center; color: var(--muted); font-size: 13px; margin: 6px 0; }
+  .card h3 { margin: 10px 0 4px; font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+  label.f { display: grid; grid-template-columns: 74px minmax(0, 1fr) 42px; gap: 8px; align-items: center; color: var(--muted); font-size: 13px; margin: 5px 0; }
   label.f output { text-align: right; color: var(--text); font-size: 12px; }
+  label.chk { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 13px; margin: 5px 0; cursor: pointer; }
+  label.chk input { accent-color: var(--accent); }
   input[type=range] { width: 100%; accent-color: var(--accent); }
-  input[type=color] { width: 40px; height: 28px; padding: 0; border: 1px solid var(--line); border-radius: 7px; background: none; cursor: pointer; }
-  select { font: inherit; color: var(--text); background: #1c2433; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; width: 100%; min-width: 0; }
-  button { font: inherit; color: var(--text); background: #1c2433; border: 1px solid var(--line); border-radius: 9px; padding: 7px 11px; cursor: pointer; }
+  input[type=color] { width: 40px; height: 30px; padding: 0; border: 1px solid var(--line); border-radius: 7px; background: none; cursor: pointer; flex: none; }
+  select { font: inherit; color: var(--text); background: #1c2433; border: 1px solid var(--line); border-radius: 8px; padding: 5px 7px; width: 100%; min-width: 0; }
+  button { font: inherit; color: var(--text); background: #1c2433; border: 1px solid var(--line); border-radius: 9px; padding: 6px 10px; cursor: pointer; }
   button:hover { background: #243048; }
   button.on, button.primary { background: var(--accent2); border-color: var(--accent); }
   button.small { padding: 3px 8px; font-size: 12px; border-radius: 7px; }
-  button:disabled { opacity: .5; cursor: default; }
-  .tools { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-  .tools button { padding: 7px 4px; font-size: 12.5px; }
-  .btns { display: flex; gap: 6px; flex-wrap: wrap; }
-  .mats { display: flex; flex-direction: column; gap: 3px; max-height: 260px; overflow: auto; }
-  .mats button { text-align: left; padding: 5px 9px; font-size: 13px; display: flex; gap: 8px; align-items: center; }
+  button:disabled { opacity: .45; cursor: default; }
+  .tools { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+  .tools button { padding: 6px 2px; font-size: 12px; }
+  .tools button kbd { display: block; font: 10px/1 Consolas, monospace; color: var(--muted); margin-top: 2px; }
+  .btns { display: flex; gap: 5px; flex-wrap: wrap; }
+  .mats { display: flex; flex-direction: column; gap: 3px; max-height: 200px; overflow: auto; }
+  .mats button { text-align: left; padding: 4px 9px; font-size: 13px; display: flex; gap: 8px; align-items: center; }
   .mats button .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none; visibility: hidden; }
   .mats button.edited .dot { visibility: visible; }
-  .layers { display: flex; flex-direction: column; gap: 4px; }
-  .layer { display: grid; grid-template-columns: 22px 34px minmax(0, 1fr) auto; gap: 7px; align-items: center; padding: 5px 7px; border: 1px solid var(--line); border-radius: 9px; cursor: pointer; background: #10151d; }
+  .colorrow { display: flex; gap: 8px; align-items: center; }
+  .swatches { display: grid; grid-template-columns: repeat(8, minmax(0, 26px)); gap: 3px; flex: 1; }
+  .swatches button { aspect-ratio: 1; padding: 0; border-radius: 5px; min-width: 0; border: 1px solid #0006; }
+  .presets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+  .presets button { padding: 3px 3px 2px; display: flex; flex-direction: column; align-items: stretch; gap: 1px; font-size: 11px; line-height: 1.2; min-width: 0; }
+  .presets canvas { width: 100%; height: 26px; display: block; border-radius: 5px; background: #0b0e14; }
+  .alphas { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-bottom: 6px; }
+  .alphas button { padding: 2px; aspect-ratio: 1; min-width: 0; }
+  .alphas canvas { width: 100%; height: 100%; display: block; border-radius: 4px; background: #000; }
+  details.grp { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 4px; }
+  details.grp summary { cursor: pointer; color: var(--muted); font-size: 12.5px; padding: 2px 0; }
+  .layers { display: flex; flex-direction: column; gap: 4px; max-height: 300px; overflow: auto; }
+  .layer { display: grid; grid-template-columns: 20px auto minmax(0, 1fr); gap: 7px; align-items: center; padding: 4px 7px; border: 1px solid var(--line); border-radius: 9px; cursor: pointer; background: #10151d; }
   .layer.on { border-color: var(--accent); background: #1a2537; }
-  .layer canvas { width: 34px; height: 34px; border-radius: 5px; background: #333 repeating-conic-gradient(#555 0 25%, #333 0 50%) 0 0 / 10px 10px; display: block; }
+  .layer .th { display: flex; gap: 3px; }
+  .layer canvas { width: 32px; height: 32px; border-radius: 5px; background: #333 repeating-conic-gradient(#555 0 25%, #333 0 50%) 0 0 / 10px 10px; display: block; outline-offset: 1px; }
+  .layer canvas.mask { background: #000; }
+  .layer.on canvas.tgt { outline: 2px solid var(--accent); }
   .layer .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
   .layer .kind { color: var(--muted); font-size: 11px; display: block; }
   .layer input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
   .props { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 6px; }
-  #uv { width: 100%; aspect-ratio: 1; background: #0b0e14; border: 1px solid var(--line); border-radius: 10px; display: block; touch-action: none; cursor: crosshair; image-rendering: auto; }
   #msg { color: var(--muted); font-size: 13px; min-height: 18px; }
   .note { color: var(--muted); font-size: 12.5px; margin: 6px 0 0; }
+  .keys { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .keys kbd { font: 11px Consolas, monospace; color: var(--text); background: #0b0e14; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; white-space: nowrap; }
   textarea#copyOut { width: 100%; min-height: 60px; margin-top: 8px; font: 12px/1.35 Consolas, monospace; color: var(--text); background: #0b0e14; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
-  @media (max-width: 1100px) { .app { grid-template-columns: 1fr; height: auto; } .view { height: 62vh; } .col { overflow: visible; } }
+  @media (max-width: 1150px) { .app { grid-template-columns: 1fr; height: auto; } .view { height: 66vh; } .col { overflow: visible; } }
 </style>
 </head>
 <body>
@@ -66,35 +92,49 @@
     <div class="card"><h2>Model</h2>
       <select id="modelPick" aria-label="Model"></select>
       <div id="bodygroups"></div>
-      <div class="btns" style="margin-top:8px"><button id="btnImport" title="An .obj model (with its UVs). Add its textures afterwards with Load image.">Import .obj…</button></div>
+      <div class="btns" style="margin-top:8px">
+        <button class="small" id="btnImport" title="An .obj model (with its UVs). Add its textures afterwards with Load image.">Import .obj…</button>
+        <button class="small" id="btnOpen" title="Open a project you saved: the model, its bodygroups and every layer">Open project…</button>
+        <button class="small" id="btnSave" title="Save every layer and mask to a file, to carry on later">Save project</button>
+      </div>
       <input type="file" id="fileObj" accept=".obj" hidden><input type="file" id="fileImg" accept="image/*,.vtf" hidden>
+      <input type="file" id="fileProj" accept=".json" hidden><input type="file" id="fileAlpha" accept="image/*" hidden>
     </div>
     <div class="card"><h2>Materials</h2><div class="mats" id="mats"></div>
       <div class="btns" style="margin-top:8px"><button class="small" id="btnLoadImg" title="Replace this material's base texture with an image or .vtf">Load image…</button></div></div>
-    <div class="card"><h2>Brush</h2>
-      <div class="tools" role="toolbar" aria-label="Tools">
-        <button data-tool="brush" title="Paint (B)">Brush</button><button data-tool="erase" title="Erase (E)">Eraser</button>
-        <button data-tool="pick" title="Pick a colour from the texture (I)">Picker</button><button data-tool="orbit" title="Only orbit the camera (Space)">Orbit</button>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="color" id="color" value="#4e94e6" aria-label="Brush colour"><span class="note" style="margin:0">colour · [ ] size · Ctrl+Z undo</span></div>
-      <label class="f">Size <input type="range" id="size" min="1" max="200" value="24"><output id="sizeOut"></output></label>
-      <label class="f">Hardness <input type="range" id="hard" min="0" max="100" value="60"><output id="hardOut"></output></label>
-      <label class="f">Flow <input type="range" id="flow" min="1" max="100" value="80"><output id="flowOut"></output></label>
-      <label class="f" title="Paint the mirrored side too (left/right of the model)">Mirror <input type="checkbox" id="mirror" style="justify-self:start"><span></span></label>
+    <div class="card"><h2>Tools</h2><div class="tools" id="tools" role="toolbar" aria-label="Tools"></div></div>
+    <div class="card"><h2>Tool settings</h2>
+      <div class="colorrow"><input type="color" id="color" value="#4e94e6" aria-label="Paint colour"><div class="swatches" id="swatches"></div></div>
+      <div id="settings"></div>
     </div>
+    <div class="card"><h2>Brushes</h2><div class="presets" id="presets"></div>
+      <h3>Brush shape</h3><div class="alphas" id="alphas"></div>
+      <button class="small" id="btnAlpha" title="Use your own image as the brush shape: white paints, black doesn't">Load shape…</button>
+    </div>
+    <div class="card"><details><summary style="cursor:pointer;color:var(--muted);font-size:12.5px">Keyboard and mouse</summary><div class="keys">
+      <kbd>Left drag</kbd><span>use the tool</span><kbd>Shift + click</kbd><span>straight line from the last point</span>
+      <kbd>Right drag / Alt</kbd><span>spin (3D), move (2D)</span><kbd>Middle drag</kbd><span>move the view</span><kbd>Wheel</kbd><span>zoom</span>
+      <kbd>Ctrl + right drag</kbd><span>size (sideways), hardness (up/down)</span><kbd>[ ]</kbd><span>size</span><kbd>Shift + [ ]</kbd><span>hardness</span>
+      <kbd>1 … 0</kbd><span>flow 10 … 100%</span><kbd>B E G R S I</kbd><span>brush, eraser, fill, blur, smudge, picker</span>
+      <kbd>M</kbd><span>mirror</span><kbd>F1 F2 F3</kbd><span>split, 3D, 2D view</span><kbd>F</kbd><span>fit the 2D view</span>
+      <kbd>Ctrl + Z / Y</kbd><span>undo, redo</span></div></details></div>
   </div>
   <div class="view" id="view"><canvas id="gl"></canvas><div id="cursor"></div><div class="loading" id="loading">Loading…</div>
-    <div class="viewtools"><select id="rig" aria-label="Lighting"><option value="day">Lit area</option><option value="night">Dark area</option><option value="flat">Flat (no lighting)</option></select></div>
-    <div class="hint">left drag paints · right drag or Space spins · wheel zooms · middle drag pans</div></div>
+    <div class="viewtools">
+      <div class="seg" id="layoutSeg"><button data-layout="split" title="3D and texture side by side (F1)">Split</button><button data-layout="3d" title="3D only (F2)">3D</button><button data-layout="2d" title="Texture only (F3)">2D</button></div>
+      <select id="show" aria-label="What the views show"><option value="final">Final look</option><option value="mask">Selected layer's mask</option></select>
+      <select id="rig" aria-label="Lighting"><option value="day">Lit area</option><option value="night">Dark area</option><option value="flat">Flat (no lighting)</option></select>
+      <label class="chk"><input type="checkbox" id="wire" checked> UV lines</label>
+    </div>
+    <div class="hint">left drag paints · right drag spins · wheel zooms · Shift+click draws a line · Ctrl+right drag sizes the brush</div></div>
   <div class="col">
-    <div class="card"><h2><span class="grow">Layers</span><button class="small" id="addPaint" title="A transparent layer to paint on">+ Paint</button><button class="small" id="addFill" title="A solid colour layer; paint or erase its mask">+ Fill</button></h2>
+    <div class="card"><h2><span class="grow">Layers</span><button class="small" id="addPaint" title="A transparent layer to paint on">+ Paint</button><button class="small" id="addFill" title="A solid colour through a mask: paint or erase the mask, or let a smart mask make it">+ Fill</button><button class="small" id="addAdjust" title="Hue, saturation, brightness and contrast of everything below, through a mask">+ Adjust</button></h2>
       <div class="btns" id="pieceRow" style="margin-bottom:8px"></div>
       <div class="layers" id="layers"></div>
       <div class="props" id="props"></div>
     </div>
-    <div class="card"><h2>Texture</h2><canvas id="uv" width="512" height="512" aria-label="The texture: paint here too"></canvas></div>
     <div class="card"><h2>Export</h2>
-      <div class="btns"><button id="btnPng">PNG</button><button id="btnVtf" title="DXT1 (DXT5-free RGBA when the texture has see-through parts), with mipmaps">VTF</button><button class="primary" id="btnPac" title="Uploads the painted textures and copies a PAC outfit that puts them on this model">Copy PAC outfit</button></div>
+      <div class="btns"><button id="btnPng">PNG</button><button id="btnVtf" title="DXT1 (RGBA when the texture has see-through parts), with mipmaps">VTF</button><button class="primary" id="btnPac" title="Uploads the painted textures and copies a PAC outfit that puts them on this model">Copy PAC outfit</button></div>
       <textarea id="copyOut" readonly hidden></textarea>
       <div id="msg"></div>
       <p class="note">PAC outfit: in PAC right-click an empty spot in the part list → load → load from clipboard → Ctrl+V, then Wear on the same model. Textures are uploaded square (max 1024). Server rules still apply, and changes need staff approval.</p>
@@ -116,6 +156,7 @@ const rgb2hex = c => '#' + c.map(v => clamp(Math.round(v), 0, 255).toString(16).
 const $ = id => document.getElementById(id);
 const flash = m => { $('msg').textContent = m; };
 const nice = s => s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+const sstep = (a, b, x) => { const t = clamp((x - a) / ((b - a) || 1e-6), 0, 1); return t * t * (3 - 2 * t); };
 
 // ---------------------------------------------------------------- Source-style model shading (shared by the PAC 3 Suite tools)
 // A WebGL1 version of Source's VertexLitGeneric (the shader player models use), following its pixel shader: lighting
@@ -408,13 +449,21 @@ function boxDown(rgb, w, h, f) {
 
 
 // ---------------------------------------------------------------- state
-// a material: its base image and a stack of layers composited into one canvas (what the 3D view and exports use)
-//   layer: { name, kind: 'base' | 'paint' | 'fill', canvas (paint: its pixels, fill: its mask), color (fill), opacity, blend, visible }
-const T = { tool: 'brush', size: 24, hard: 0.6, flow: 0.8, color: '#4e94e6', mirror: false };
-let MODEL = null, active = null, MODELS = [];   // MODEL: { name, meta?, mesh, mats, draws, height, center, bodyparts?, bg }
-const BLENDS = [['source-over', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['overlay', 'Overlay'], ['soft-light', 'Soft light'], ['color', 'Colour (keep shading)'], ['hue', 'Hue'], ['luminosity', 'Brightness']];
+// a material: its base image and a stack of layers composited into one canvas (what the views and exports use)
+//   layer: { name, kind: 'base' | 'paint' | 'fill' | 'adjust', canvas (base/paint pixels), mask (white = shows; fill and
+//            adjust always have one, paint optionally), color (fill), adj (adjust), gen (smart mask settings),
+//            opacity, blend, visible }
+// m.target says whether the brush works on the selected layer's pixels or its mask
+const T = { tool: 'brush', size: 24, flow: 0.5, opacity: 1, hard: 0.15, spacing: 0.1, angle: 0, follow: false, smooth: 0.3,
+  jSize: 0, jAngle: 0, jPos: 0, jFlow: 0, pSize: true, pFlow: false, alpha: 'round', preset: 'Soft round',
+  color: '#4e94e6', mirror: false, fillMode: 'colour', tol: 15, contig: true, show: 'final', recent: [] };
+let MODEL = null, active = null, MODELS = [], stroke = null;
+const BLENDS = [['source-over', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['overlay', 'Overlay'], ['soft-light', 'Soft light'], ['hard-light', 'Hard light'],
+  ['darken', 'Darken'], ['lighten', 'Lighten'], ['color-dodge', 'Dodge'], ['color-burn', 'Burn'], ['difference', 'Difference'],
+  ['color', 'Colour (keep shading)'], ['hue', 'Hue'], ['saturation', 'Saturation'], ['luminosity', 'Brightness']];
 const canvas = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
 const ctx2 = c => c.getContext('2d', { willReadFrequently: true });
+const fitC = (c, w, h) => { if (c.width !== w || c.height !== h) { c.width = w; c.height = h; } return c; };
 const pow2 = v => clamp(2 ** Math.round(Math.log2(Math.max(4, v))), 64, 2048);
 const vtfCache = {};   // the game's own textures, decoded exactly (shared between models)
 // a failed load is retried once and never kept, so a network hiccup doesn't break that texture until a reload
@@ -422,42 +471,430 @@ const vtf = (root, id) => vtfCache[root + id] || (vtfCache[root + id] = SRC.load
   .catch(() => SRC.loadVTF(root + 'vtf/' + id + '.vtf')).catch(e => { delete vtfCache[root + id]; throw e; }));
 const toCanvas = data => { const c = canvas(data.width, data.height); ctx2(c).putImageData(data, 0, 0); return c; };
 const img = src => new Promise((ok, bad) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => ok(i); i.onerror = () => bad(new Error('could not load ' + src)); i.src = src; });
+const white = (w, h) => { const c = canvas(w, h), x = ctx2(c); x.fillStyle = '#fff'; x.fillRect(0, 0, w, h); return c; };
+const cloneC = c => { const o = canvas(c.width, c.height); ctx2(o).drawImage(c, 0, 0); return o; };
 
 function makeMat(name, source, extra = {}) {
   const w = pow2(source ? source.width : 1024), h = pow2(source ? source.height : 1024);
   const base = canvas(w, h), x = ctx2(base);
   if (source) x.drawImage(source, 0, 0, w, h); else { x.fillStyle = '#9a9a9a'; x.fillRect(0, 0, w, h); }
-  const comp = canvas(w, h);
-  const m = Object.assign({ name, w, h, comp, layers: [{ name: 'Base texture', kind: 'base', canvas: base, opacity: 1, blend: 'source-over', visible: true }], sel: 0, undo: [], dirty: true }, extra);
+  const m = Object.assign({ name, w, h, comp: canvas(w, h), layers: [{ name: 'Base texture', kind: 'base', canvas: base, opacity: 1, blend: 'source-over', visible: true }],
+    sel: 0, target: 'content', undo: [], redo: [], dirtyRect: 'all' }, extra);
   m.hasAlpha = alphaOf(base);
   return m;
 }
 function alphaOf(c) { const d = ctx2(c).getImageData(0, 0, c.width, c.height).data; for (let i = 3; i < d.length; i += 64) if (d[i] < 250) return true; return false; }
 const edited = m => m.layers.length > 1 || !!m.replaced;
 
-// composite the layer stack into m.comp
-const scratch = canvas(4, 4);
+// ---------------------------------------------------------------- compositing (only the changed rectangle)
+// rectangles are [x0, y0, x1, y1] in texture pixels
+const touch = (m, r) => { if (m.dirtyRect === 'all') return; m.dirtyRect = m.dirtyRect ? [Math.min(m.dirtyRect[0], r[0]), Math.min(m.dirtyRect[1], r[1]), Math.max(m.dirtyRect[2], r[2]), Math.max(m.dirtyRect[3], r[3])] : r.slice(); };
+const touchAll = m => { if (m) m.dirtyRect = 'all'; };
+const clipR = (r, m) => { const o = [Math.max(0, Math.floor(r[0])), Math.max(0, Math.floor(r[1])), Math.min(m.w, Math.ceil(r[2])), Math.min(m.h, Math.ceil(r[3]))]; return o[2] > o[0] && o[3] > o[1] ? o : null; };
+const unionR = (a, b) => a ? [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])] : b.slice();
+const S1 = canvas(4, 4), S2 = canvas(4, 4), SB = canvas(4, 4), BEFORE = canvas(4, 4), TMP = canvas(4, 4);   // scratch, stroke buffer, undo copy
+const adjFilter = a => `hue-rotate(${a.hue}deg) saturate(${a.sat}) brightness(${a.light}) contrast(${a.con})`;
+const targetOf = m => { const L = m.layers[m.sel]; return L.kind === 'fill' || L.kind === 'adjust' ? 'mask' : L.kind === 'paint' && L.mask && m.target === 'mask' ? 'mask' : 'content'; };
 function composite(m) {
-  const x = ctx2(m.comp); x.globalCompositeOperation = 'copy'; x.globalAlpha = 1;
-  let first = true;
-  for (const L of m.layers) {
+  const r = m.dirtyRect === 'all' ? [0, 0, m.w, m.h] : m.dirtyRect && clipR(m.dirtyRect, m); m.dirtyRect = null;
+  if (!r) return;
+  const [x0, y0, x1, y1] = r, w = x1 - x0, h = y1 - y0;
+  fitC(S1, m.w, m.h); fitC(S2, m.w, m.h);
+  const blit = (x, src, op = 'source-over', a = 1) => { x.globalCompositeOperation = op; x.globalAlpha = a; x.drawImage(src, x0, y0, w, h, x0, y0, w, h); x.globalAlpha = 1; x.globalCompositeOperation = 'source-over'; };
+  const c = ctx2(m.comp), s = ctx2(S1), q = ctx2(S2);
+  const sv = stroke && stroke.m === m && !stroke.direct ? stroke : null;
+  const maskOf = L => {   // L's mask in S2 (with the stroke being painted into it)
+    q.clearRect(x0, y0, w, h); blit(q, L.mask);
+    if (sv && sv.L === L && sv.target === 'mask') blit(q, SB, sv.erase ? 'destination-out' : 'source-over', T.opacity);
+    return S2;
+  };
+  c.clearRect(x0, y0, w, h);
+  if (T.show === 'mask' && m === active) {   // mask view: the selected layer's mask in grey
+    const L = m.layers[m.sel]; c.fillStyle = '#000'; c.fillRect(x0, y0, w, h);
+    if (L.mask) blit(c, maskOf(L)); else if (L.kind === 'paint' || L.kind === 'base') { c.fillStyle = '#fff'; c.fillRect(x0, y0, w, h); }
+  } else for (const L of m.layers) {
     if (!L.visible || L.opacity <= 0) continue;
-    let src = L.canvas;
-    if (L.kind === 'fill') {   // the fill colour through the mask
-      if (scratch.width !== m.w || scratch.height !== m.h) { scratch.width = m.w; scratch.height = m.h; }
-      const s = ctx2(scratch); s.globalCompositeOperation = 'copy'; s.drawImage(L.canvas, 0, 0);
-      s.globalCompositeOperation = 'source-in'; s.fillStyle = L.color; s.fillRect(0, 0, m.w, m.h); src = scratch;
-    }
-    x.globalCompositeOperation = first ? 'copy' : L.blend; x.globalAlpha = L.opacity;
-    x.drawImage(src, 0, 0); first = false;
+    if (L.kind === 'base') { blit(c, L.canvas); continue; }
+    s.clearRect(x0, y0, w, h);
+    if (L.kind === 'paint') { blit(s, L.canvas); if (sv && sv.L === L && sv.target === 'content') blit(s, SB, sv.erase ? 'destination-out' : 'source-over', T.opacity); }
+    else if (L.kind === 'fill') { s.fillStyle = L.color; s.fillRect(x0, y0, w, h); }
+    else if (L.kind === 'adjust') { s.filter = adjFilter(L.adj); blit(s, m.comp); s.filter = 'none'; }
+    if (L.mask) blit(s, maskOf(L), 'destination-in');
+    blit(c, S1, L.kind === 'adjust' ? 'source-over' : L.blend, L.opacity);
   }
-  if (first) { x.clearRect(0, 0, m.w, m.h); }
-  x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1;
-  m.dirty = false; m.upload = true;
+  m.upRect = m.upRect ? unionR(m.upRect, r) : r;
+}
+const flushed = m => { if (m.dirtyRect) composite(m); return m.comp; };
+// the final look even while the views show a mask (exports, picker, colour fill)
+function finalOf(m) {
+  if (T.show === 'final' || m !== active) return flushed(m);
+  T.show = 'final'; m.dirtyRect = 'all'; composite(m); const c = cloneC(m.comp); T.show = 'mask'; m.dirtyRect = 'all'; return c;
 }
 
-// ---------------------------------------------------------------- 3D view
-const G = { yaw: 0.35, pitch: 0.12, dist: 100, pan: [0, 0, 0] };
+// ---------------------------------------------------------------- undo (pixel patches and layer-stack states)
+const crop = (c, r) => { const o = canvas(r[2] - r[0], r[3] - r[1]); ctx2(o).drawImage(c, r[0], r[1], o.width, o.height, 0, 0, o.width, o.height); return o; };
+const FIELDS = ['name', 'opacity', 'blend', 'visible', 'color', 'mask', 'canvas', 'adj', 'gen'];
+const copyF = v => v && typeof v === 'object' && !(v instanceof HTMLCanvasElement) ? Object.assign({}, v) : v;
+const stackOf = m => ({ layers: m.layers.slice(), sel: m.sel, target: m.target, f: m.layers.map(L => FIELDS.map(k => copyF(L[k]))) });
+function restoreStack(m, s) { m.layers = s.layers.slice(); m.sel = s.sel; m.target = s.target; s.layers.forEach((L, i) => FIELDS.forEach((k, j) => { L[k] = copyF(s.f[i][j]); })); }
+function pushUndo(m, step) {
+  step.px = (step.pix || []).reduce((n, p) => n + 2 * p.before.width * p.before.height, 0);
+  m.undo.push(step); m.redo = [];
+  let total = m.undo.reduce((n, s) => n + s.px, 0);
+  while (m.undo.length > 60 || (total > 48e6 && m.undo.length > 1)) total -= m.undo.shift().px;
+}
+// run a change to the layer stack (and to the pixels of `pix`: [[canvas, rect]]) as one undo step
+function act(m, fn, pix = []) {
+  const b = stackOf(m), pb = pix.map(([c, r]) => ({ c, r, before: crop(c, r) }));
+  fn();
+  pb.forEach(p => { p.after = crop(p.c, p.r); });
+  pushUndo(m, { state: { before: b, after: stackOf(m) }, pix: pb });
+  for (const L of m.layers) L.thumbDirty = true;
+  touchAll(m); if (m === active) buildLayers(); markEdited();
+}
+function applyStep(m, st, k) {
+  for (const p of st.pix || []) { const x = ctx2(p.c); x.clearRect(p.r[0], p.r[1], p.r[2] - p.r[0], p.r[3] - p.r[1]); x.drawImage(p[k], p.r[0], p.r[1]); }
+  if (st.state) restoreStack(m, st.state[k]);
+  for (const L of m.layers) L.thumbDirty = true;
+  touchAll(m); if (m === active) buildLayers(); markEdited();
+}
+function undo() { if (!active || stroke || !active.undo.length) return; const st = active.undo.pop(); applyStep(active, st, 'before'); active.redo.push(st); }
+function redo() { if (!active || stroke || !active.redo.length) return; const st = active.redo.pop(); applyStep(active, st, 'after'); active.undo.push(st); }
+
+// ---------------------------------------------------------------- brush shapes
+const mulberry = a => () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+function noise3(seed) {   // smooth value noise in 3D (also used in 2D with z fixed)
+  const R = mulberry(seed), p = new Uint8Array(512), val = new Float32Array(256), q = [...Array(256).keys()];
+  for (let i = 255; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [q[i], q[j]] = [q[j], q[i]]; }
+  for (let i = 0; i < 512; i++) p[i] = q[i & 255];
+  for (let i = 0; i < 256; i++) val[i] = R();
+  const h = (x, y, z) => val[p[p[p[x & 255] + (y & 255)] + (z & 255)]], s = t => t * t * (3 - 2 * t), L = (a, b, t) => a + (b - a) * t;
+  return (x, y, z) => {
+    const X = Math.floor(x), Y = Math.floor(y), Z = Math.floor(z), u = s(x - X), v = s(y - Y), w = s(z - Z);
+    return L(L(L(h(X, Y, Z), h(X + 1, Y, Z), u), L(h(X, Y + 1, Z), h(X + 1, Y + 1, Z), u), v),
+      L(L(h(X, Y, Z + 1), h(X + 1, Y, Z + 1), u), L(h(X, Y + 1, Z + 1), h(X + 1, Y + 1, Z + 1), u), v), w);
+  };
+}
+// fractal noise, stretched to use most of 0..1
+const fbm = (n, x, y, z, oct = 4) => { let s = 0, a = 0.5, t = 0; for (let i = 0; i < oct; i++) { s += a * n(x, y, z); t += a; x *= 2.03; y *= 2.03; z *= 2.03; a *= 0.5; } return clamp((s / t - 0.5) * 2.2 + 0.5, 0, 1); };
+const AS = 256;   // brush shapes are 256 px, white with the shape in alpha
+const falloff = (d, h) => d >= 1 ? 0 : d <= h ? 1 : sstep(0, 1, (1 - d) / (1 - h));
+function fieldAlpha(fn) {
+  const c = canvas(AS, AS), x = ctx2(c), im = x.createImageData(AS, AS);
+  for (let j = 0, i = 0; j < AS; j++) for (let k = 0; k < AS; k++, i += 4) { im.data[i] = im.data[i + 1] = im.data[i + 2] = 255; im.data[i + 3] = clamp(fn((k + 0.5) / AS * 2 - 1, (j + 0.5) / AS * 2 - 1), 0, 1) * 255; }
+  x.putImageData(im, 0, 0); return c;
+}
+function pathAlpha(seed, fn) { const c = canvas(AS, AS), x = ctx2(c); x.fillStyle = x.strokeStyle = '#fff'; x.translate(AS / 2, AS / 2); x.scale(AS / 2, AS / 2); fn(x, mulberry(seed)); return c; }
+const ALPHAS = {
+  round: { name: 'Round', hard: true, make: h => fieldAlpha((x, y) => falloff(Math.hypot(x, y), h)) },
+  square: { name: 'Square', hard: true, make: h => fieldAlpha((x, y) => falloff(Math.max(Math.abs(x), Math.abs(y)), h)) },
+  flat: { name: 'Flat marker', make: () => fieldAlpha((x, y) => falloff(Math.hypot(x, y / 0.25), 0.75)) },
+  chalk: { name: 'Chalk', make: () => { const n = noise3(7); return fieldAlpha((x, y) => falloff(Math.hypot(x, y), 0.35) * clamp((fbm(n, x * 7 + 9, y * 7 + 9, 0.5, 3) - 0.38) * 4, 0, 1)); } },
+  grunge: { name: 'Grunge', make: () => { const n = noise3(11); return fieldAlpha((x, y) => Math.sqrt(falloff(Math.hypot(x, y), 0)) * clamp((fbm(n, x * 3 + 4, y * 3 + 4, 1.5, 5) - 0.42) * 3, 0, 1)); } },
+  splat: { name: 'Splatter', make: () => pathAlpha(5, (x, R) => {
+    x.beginPath(); for (let i = 0; i <= 48; i++) { const a = i / 48 * Math.PI * 2, r = 0.3 + R() * 0.12; x.lineTo(Math.cos(a) * r, Math.sin(a) * r); } x.fill();
+    for (let k = 0; k < 16; k++) { const a = R() * Math.PI * 2, r = 0.02 + R() * 0.07, d = 0.4 + R() * (0.92 - r - 0.4); x.beginPath(); x.arc(Math.cos(a) * d, Math.sin(a) * d, r, 0, Math.PI * 2); x.fill(); }
+  }) },
+  dots: { name: 'Spray', make: () => pathAlpha(9, (x, R) => { for (let k = 0; k < 80; k++) { const a = R() * Math.PI * 2, d = Math.sqrt(R()) * 0.9, r = 0.012 + R() * 0.028; x.globalAlpha = 0.5 + R() * 0.5; x.beginPath(); x.arc(Math.cos(a) * d, Math.sin(a) * d, r, 0, Math.PI * 2); x.fill(); } }) },
+  scratch: { name: 'Scratches', make: () => pathAlpha(3, (x, R) => {
+    x.lineCap = 'round';
+    for (let k = 0; k < 9; k++) { const y = (R() - 0.5) * 1.3, a = -0.95 + R() * 0.5, b = 0.45 + R() * 0.5; x.globalAlpha = 0.45 + R() * 0.55; x.lineWidth = 0.008 + R() * 0.022; x.beginPath(); x.moveTo(a, y); x.quadraticCurveTo(0, y + (R() - 0.5) * 0.12, b, y + (R() - 0.5) * 0.1); x.stroke(); }
+  }) },
+  ring: { name: 'Rivet', make: () => fieldAlpha((x, y) => { const d = Math.hypot(x, y); return Math.max(falloff(Math.abs(d - 0.72) / 0.2, 0.55), falloff(d / 0.28, 0.6) * 0.5); }) },
+  star: { name: 'Star', make: () => pathAlpha(1, x => { x.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 0.4 : 0.95; x.lineTo(Math.cos(a) * r, Math.sin(a) * r); } x.fill(); }) },
+};
+const alphaCache = new Map(), tipCache = new Map();
+function alphaOfShape(key, hard) {
+  const A = ALPHAS[key] || ALPHAS.round, hk = A.hard ? Math.round(hard * 20) / 20 : 0, k = key + '|' + hk;
+  if (!alphaCache.has(k)) alphaCache.set(k, A.canvas || A.make(hk));
+  return alphaCache.get(k);
+}
+// the shape in a colour (cached: a stroke stamps it hundreds of times)
+function tipFor(key, hard, color) {
+  const a = alphaOfShape(key, hard); if (color === '#ffffff') return a;
+  const k = key + '|' + hard + '|' + color; let t = tipCache.get(k);
+  if (!t) {
+    t = canvas(AS, AS); const x = ctx2(t); x.drawImage(a, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, AS, AS);
+    tipCache.set(k, t); if (tipCache.size > 32) tipCache.delete(tipCache.keys().next().value);
+  }
+  return t;
+}
+const PRESET_BASE = { hard: 0.6, spacing: 0.12, follow: false, angle: 0, jSize: 0, jAngle: 0, jPos: 0, jFlow: 0, flow: 0.8 };
+const PRESETS = [
+  { name: 'Soft round', alpha: 'round', hard: 0.15, flow: 0.5, spacing: 0.1 },
+  { name: 'Hard round', alpha: 'round', hard: 0.95, flow: 1, spacing: 0.06 },
+  { name: 'Airbrush', alpha: 'round', hard: 0, flow: 0.1, spacing: 0.05 },
+  { name: 'Square', alpha: 'square', hard: 0.9, flow: 1, spacing: 0.06 },
+  { name: 'Marker', alpha: 'flat', flow: 0.9, spacing: 0.04, follow: true },
+  { name: 'Chalk', alpha: 'chalk', flow: 0.7, spacing: 0.2, jAngle: 1 },
+  { name: 'Grunge', alpha: 'grunge', flow: 0.6, spacing: 0.35, jAngle: 1, jSize: 0.3 },
+  { name: 'Splatter', alpha: 'splat', flow: 1, spacing: 1.3, jAngle: 1, jSize: 0.5, jPos: 0.8 },
+  { name: 'Spray', alpha: 'dots', flow: 0.8, spacing: 0.5, jAngle: 1, jPos: 0.3 },
+  { name: 'Scratches', alpha: 'scratch', flow: 0.9, spacing: 0.3, follow: true, jAngle: 0.04, jSize: 0.3 },
+  { name: 'Rivets', alpha: 'ring', flow: 1, spacing: 1.6, hard: 0.6 },
+  { name: 'Star stamp', alpha: 'star', flow: 1, spacing: 1.6 },
+];
+
+// ---------------------------------------------------------------- stroke engine
+// a stroke side (the brush, or its mirror) walks the path in texture pixels and puts a dab every `spacing` brush
+// widths, with jitter: put(x, y, size, angle, alpha)
+function dabAt(S, P, p, pressure, put) {
+  const R = Math.random, size = S.size * (P.pSize ? pressure : 1) * (1 - P.jSize * R());
+  const ang = P.angle * Math.PI / 180 + (P.follow ? S.dir || 0 : 0) + (R() - 0.5) * 2 * Math.PI * P.jAngle, sc = P.jPos * size;
+  put(p[0] + (R() - 0.5) * 2 * sc, p[1] + (R() - 0.5) * 2 * sc, Math.max(0.5, size), ang, P.flow * (P.pFlow ? pressure : 1) * (1 - P.jFlow * R()));
+}
+function trail(S, P, p, pressure, jump, put) {
+  if (!S.last || jump) { S.last = p; S.carry = 0; dabAt(S, P, p, pressure, put); return; }
+  const dx = p[0] - S.last[0], dy = p[1] - S.last[1], d = Math.hypot(dx, dy); if (d < 1e-6) return;
+  S.dir = Math.atan2(dy, dx);
+  const sp = Math.max(0.5, S.size * (P.pSize ? pressure : 1) * P.spacing);
+  let t = sp - S.carry;
+  for (; t <= d; t += sp) dabAt(S, P, [S.last[0] + dx * t / d, S.last[1] + dy * t / d], pressure, put);
+  S.carry = d - (t - sp); S.last = p;
+}
+// one stamp, wrapped across the left/right texture edge for tiling UVs (W = texture width; 0 = no wrap)
+function stampTip(x, tip, px, py, size, ang, a, W) {
+  x.globalAlpha = clamp(a, 0, 1);
+  const c = Math.cos(ang), s = Math.sin(ang), xs = [px];
+  if (W) { if (px < size) xs.push(px + W); if (px > W - size) xs.push(px - W); }
+  for (const X of xs) { x.setTransform(c, s, -s, c, X, py); x.drawImage(tip, -size / 2, -size / 2, size, size); }
+  x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = 1;
+}
+const BRUSHY = new Set(['brush', 'erase', 'blur', 'smudge']);
+function layerForPaint(m) {   // never paint the original: start a paint layer above it
+  if (m.layers[m.sel].kind === 'base') { newLayer(m, 'paint'); flash('Added a paint layer to paint on (the base texture stays untouched).'); }
+  return { L: m.layers[m.sel], target: targetOf(m) };
+}
+function beginStroke(hit) {
+  const m = MODEL.mats[hit.mat];
+  if (m !== active) selectMat(m);
+  const { L, target } = layerForPaint(m), dst = target === 'mask' ? L.mask : L.canvas;
+  fitC(BEFORE, m.w, m.h); const b = ctx2(BEFORE); b.clearRect(0, 0, m.w, m.h); b.drawImage(dst, 0, 0);
+  const direct = T.tool === 'blur' || T.tool === 'smudge';
+  if (!direct) { fitC(SB, m.w, m.h); ctx2(SB).clearRect(0, 0, m.w, m.h); }
+  const erase = T.tool === 'erase', color = target === 'mask' || erase ? '#ffffff' : T.color;
+  const size = T.size * m.w / 1024;
+  stroke = { m, slot: hit.mat, L, target, dst, direct, erase, tip: tipFor(T.alpha, T.hard, color), shape: tipFor(T.alpha, T.hard, '#ffffff'), rect: null, sides: [{ size }, { size }] };
+  if (!erase && target === 'content') addRecent(T.color);
+}
+function strokeTo(hit, side, pressure, jump) {
+  const s = stroke; if (!s) return;
+  const S = s.sides[side];
+  if (!hit || hit.mat !== s.slot) { S.last = null; return; }   // the stroke stays on its material
+  const m = s.m, p = [hit.u * m.w, hit.v * m.h];
+  if (jump === null) jump = !!S.last && Math.hypot(p[0] - S.last[0], p[1] - S.last[1]) > Math.max(S.size * 4, m.w * 0.03);
+  trail(S, T, p, pressure, jump, (x, y, size, ang, a) => dab(s, S, x, y, size, ang, a));
+}
+function dab(s, S, x, y, size, ang, a) {
+  const m = s.m, r = size * 0.72 + 2;
+  if (!s.direct) stampTip(ctx2(SB), s.tip, x, y, size, ang, a, m.w);
+  else if (T.tool === 'blur') blurDab(s, x, y, size, ang, a);
+  else smudgeDab(s, S, x, y, ang, a);
+  const wrap = !s.direct && (x < size || x > m.w - size);
+  const rr = wrap ? [0, y - r, m.w, y + r] : [x - r, y - r, x + r, y + r];
+  s.rect = unionR(s.rect, rr); touch(m, rr);
+}
+// blur and smudge sample what you see (or the mask) and put it on the layer, so they work over the base texture too
+function blurDab(s, x, y, size, ang, a) {
+  const src = s.target === 'mask' ? s.dst : flushed(s.m), br = Math.max(0.6, size * 0.08), R = Math.ceil(size / 2 + br * 3 + 2);
+  const x0 = Math.floor(x - R), y0 = Math.floor(y - R), n = 2 * R, t = ctx2(fitC(TMP, n, n));
+  t.clearRect(0, 0, n, n); t.filter = `blur(${br}px)`; t.drawImage(src, x0, y0, n, n, 0, 0, n, n); t.filter = 'none';
+  t.globalCompositeOperation = 'destination-in'; stampTip(t, s.shape, x - x0, y - y0, size, ang, 1, 0); t.globalCompositeOperation = 'source-over';
+  const d = ctx2(s.dst); d.globalAlpha = clamp(a, 0, 1); d.drawImage(TMP, x0, y0); d.globalAlpha = 1;
+}
+function smudgeDab(s, S, x, y, ang, a) {
+  const size = S.size, R = Math.ceil(size / 2 + 2), n = 2 * R, x0 = Math.round(x - R), y0 = Math.round(y - R);
+  const src = () => s.target === 'mask' ? s.dst : flushed(s.m);
+  if (!S.carry2) { S.carry2 = canvas(n, n); ctx2(S.carry2).drawImage(src(), x0, y0, n, n, 0, 0, n, n); return; }
+  const t = ctx2(fitC(TMP, n, n)); t.clearRect(0, 0, n, n); t.drawImage(S.carry2, 0, 0);
+  t.globalCompositeOperation = 'destination-in'; stampTip(t, s.shape, R, R, size, ang, 1, 0); t.globalCompositeOperation = 'source-over';
+  const d = ctx2(s.dst); d.globalAlpha = clamp(a, 0, 1); d.drawImage(TMP, x0, y0); d.globalAlpha = 1;
+  touch(s.m, [x0, y0, x0 + n, y0 + n]);
+  const c = ctx2(S.carry2); c.globalAlpha = 0.35; c.drawImage(src(), x0, y0, n, n, 0, 0, n, n); c.globalAlpha = 1;   // pick up some of what is here now
+}
+function endStroke() {
+  const s = stroke; if (!s) return;
+  const m = s.m, r = s.rect && clipR(s.rect, m);
+  if (r) {
+    if (!s.direct) { const x = ctx2(s.dst); x.globalCompositeOperation = s.erase ? 'destination-out' : 'source-over'; x.globalAlpha = T.opacity; x.drawImage(SB, r[0], r[1], r[2] - r[0], r[3] - r[1], r[0], r[1], r[2] - r[0], r[3] - r[1]); x.globalAlpha = 1; x.globalCompositeOperation = 'source-over'; }
+    pushUndo(m, { pix: [{ c: s.dst, r, before: crop(BEFORE, r), after: crop(s.dst, r) }] });
+    touch(m, r);
+  }
+  stroke = null; s.L.thumbDirty = true; refreshThumbs(); markEdited();
+}
+
+// ---------------------------------------------------------------- fill tool (bucket)
+let floodStack = null;
+// the region to fill (Uint8Array, 1 = in) at w×h: connected (4-way) from x0, y0 where ok(i), or everywhere ok(i)
+function flood(w, h, x0, y0, ok, contiguous) {
+  const out = new Uint8Array(w * h);
+  if (!contiguous) { for (let i = 0; i < w * h; i++) if (ok(i)) out[i] = 1; return out; }
+  if (!floodStack || floodStack.length < w * h) floodStack = new Int32Array(w * h);
+  const st = floodStack; let sp = 0; const s0 = y0 * w + x0; if (!ok(s0)) return out;
+  out[s0] = 1; st[sp++] = s0;
+  while (sp) {
+    const i = st[--sp], x = i % w;
+    if (x > 0 && !out[i - 1] && ok(i - 1)) { out[i - 1] = 1; st[sp++] = i - 1; }
+    if (x < w - 1 && !out[i + 1] && ok(i + 1)) { out[i + 1] = 1; st[sp++] = i + 1; }
+    if (i >= w && !out[i - w] && ok(i - w)) { out[i - w] = 1; st[sp++] = i - w; }
+    if (i < w * (h - 1) && !out[i + w] && ok(i + w)) { out[i + w] = 1; st[sp++] = i + w; }
+  }
+  return out;
+}
+// a region as a white canvas, grown by `grow` pixels (covers the soft edge around UV islands)
+function maskCanvas(a, w, h, grow = 0) {
+  const c = canvas(w, h), x = ctx2(c), im = x.createImageData(w, h);
+  for (let i = 0; i < w * h; i++) if (a[i]) { const j = i * 4; im.data[j] = im.data[j + 1] = im.data[j + 2] = im.data[j + 3] = 255; }
+  x.putImageData(im, 0, 0);
+  for (let g = 0; g < grow; g++) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) x.drawImage(c, dx, dy);
+  return c;
+}
+function regionAt(m, hit) {
+  const mode = T.fillMode;
+  if (mode === 'mat') return white(m.w, m.h);
+  if (mode === 'piece') {
+    if (!m.pieceMap) { flash('This material has no marked pieces; use Similar colour or UV island.'); return null; }
+    const d = m.pieceMap.data, w = m.pieceMap.width, h = m.pieceMap.height, id = d[((Math.floor(hit.v * h) * w) + Math.floor(hit.u * w)) * 4];
+    if (!id) { flash('No marked piece there.'); return null; }
+    return maskCanvas(flood(w, h, 0, 0, i => d[i * 4] === id, false), w, h);
+  }
+  if (mode === 'uv') {
+    const bk = bake(m), x = Math.floor(hit.u * bk.w), y = Math.floor(hit.v * bk.h);
+    if (!bk.cov[y * bk.w + x]) { flash('No UV island there.'); return null; }
+    return maskCanvas(flood(bk.w, bk.h, x, y, i => bk.cov[i], true), bk.w, bk.h, 2);
+  }
+  const d = ctx2(finalOf(m)).getImageData(0, 0, m.w, m.h).data, x = Math.floor(hit.u * m.w) % m.w, y = Math.floor(hit.v * m.h) % m.h, j = (y * m.w + x) * 4;
+  const r = d[j], g = d[j + 1], b = d[j + 2], al = d[j + 3], tol = T.tol * 2.55;
+  return maskCanvas(flood(m.w, m.h, x, y, i => { const k = i * 4; return Math.abs(d[k] - r) <= tol && Math.abs(d[k + 1] - g) <= tol && Math.abs(d[k + 2] - b) <= tol && Math.abs(d[k + 3] - al) <= tol; }, T.contig), m.w, m.h, T.tol > 0 ? 1 : 0);
+}
+function bucketAt(hit, mirror) {
+  const m = MODEL.mats[hit.mat];
+  if (m !== active) selectMat(m);
+  const regions = [regionAt(m, hit), mirror && mirror.mat === hit.mat ? regionAt(m, mirror) : null].filter(Boolean);
+  if (!regions.length) return;
+  const { L, target } = layerForPaint(m), dst = target === 'mask' ? L.mask : L.canvas, full = [0, 0, m.w, m.h];
+  if (target === 'content') addRecent(T.color);
+  act(m, () => {
+    const x = ctx2(dst); x.globalAlpha = T.opacity;
+    for (const c of regions) {
+      if (target === 'content') { const t = ctx2(c); t.globalCompositeOperation = 'source-in'; t.fillStyle = T.color; t.fillRect(0, 0, c.width, c.height); }
+      x.drawImage(c, 0, 0, m.w, m.h);
+    }
+    x.globalAlpha = 1;
+  }, [[dst, full]]);
+  flash('Filled.');
+}
+
+// ---------------------------------------------------------------- baking: each texel's spot on the model
+// the material's triangles drawn in texture space: coverage, position (16 bits per axis, model box 0..1) and normal
+const BAKE_VS = `attribute vec3 aP; attribute vec3 aN; attribute vec2 aUV; varying vec3 vP; varying vec3 vN;
+void main() { vP = aP; vN = aN; gl_Position = vec4(aUV * 2.0 - 1.0, 0.0, 1.0); }`;
+const BAKE_FS = `precision highp float; varying vec3 vP; varying vec3 vN; uniform vec3 uLo, uSz; uniform float uMode;
+void main() { vec3 p = clamp((vP - uLo) / uSz, 0.0, 1.0);
+  if (uMode < 0.5) gl_FragColor = vec4(floor(p * 255.0) / 255.0, 1.0);
+  else if (uMode < 1.5) gl_FragColor = vec4(fract(p * 255.0), 1.0);
+  else gl_FragColor = vec4(normalize(vN) * 0.5 + 0.5, 1.0); }`;
+function bake(m) {
+  const slot = MODEL.mats.indexOf(m), key = slot + JSON.stringify(MODEL.bg);
+  if (m.bk && m.bk.key === key) return m.bk;
+  const gl = G.gl, B = G.bake, W = Math.min(1024, m.w), H = Math.max(1, Math.round(m.h * W / m.w)), mesh = MODEL.mesh;
+  const fb = gl.createFramebuffer(), tx = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tx); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tx, 0);
+  gl.viewport(0, 0, W, H); gl.disable(gl.DEPTH_TEST); gl.disable(gl.BLEND); gl.disable(gl.CULL_FACE); gl.useProgram(B.prog);
+  gl.uniform3fv(B.lo, MODEL.lo); gl.uniform3fv(B.sz, MODEL.hi.map((v, k) => Math.max(1e-3, v - MODEL.lo[k])));
+  gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vb); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.ib);
+  for (let i = 0; i < 8; i++) gl.disableVertexAttribArray(i);
+  [[B.aP, 3, 0], [B.aN, 3, 12], [B.aUV, 2, 24]].forEach(([l, n, o]) => { if (l < 0) return; gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, n, gl.FLOAT, false, 48, o); });
+  const px = [0, 1, 2].map(mode => {
+    gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); gl.uniform1f(B.mode, mode);
+    for (const d of shownDraws()) if (d.mat === slot) gl.drawElements(gl.TRIANGLES, d.count, mesh.type, d.start * mesh.bytes);
+    const o = new Uint8Array(W * H * 4); gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, o); return o;
+  });
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.deleteFramebuffer(fb); gl.deleteTexture(tx);
+  for (let i = 0; i < 8; i++) gl.disableVertexAttribArray(i);
+  gl.enable(gl.DEPTH_TEST);
+  const n = W * H, cov = new Uint8Array(n), pos = new Float32Array(n * 3), nrm = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {   // readPixels row 0 is v = 0, the top of the image: the same order as the texture
+    const j = i * 4; cov[i] = px[0][j + 3] ? 1 : 0;
+    for (let k = 0; k < 3; k++) { pos[i * 3 + k] = (px[0][j + k] + px[1][j + k] / 255) / 255; nrm[i * 3 + k] = px[2][j + k] / 127.5 - 1; }
+  }
+  return (m.bk = { key, w: W, h: H, cov, pos, nrm });
+}
+
+// ---------------------------------------------------------------- smart masks
+const GENS = [['', 'Hand painted'], ['edges', 'Edge wear'], ['cavity', 'Dirt in cavities'], ['ground', 'Dirt from the ground up'], ['top', 'Dust on top'], ['grunge', 'Grunge']];
+const GEN_BASE = { amount: 0.5, soft: 0.3, width: 1, scale: 6, breakup: 0, invert: false };
+function boxBlur(a, W, H, r) {
+  const t = new Float32Array(a.length);
+  for (let y = 0; y < H; y++) { let s = 0; const o = y * W; for (let x = -r; x <= r; x++) s += a[o + clamp(x, 0, W - 1)];
+    for (let x = 0; x < W; x++) { t[o + x] = s / (2 * r + 1); s += a[o + Math.min(W - 1, x + r + 1)] - a[o + Math.max(0, x - r)]; } }
+  for (let x = 0; x < W; x++) { let s = 0; for (let y = -r; y <= r; y++) s += t[clamp(y, 0, H - 1) * W + x];
+    for (let y = 0; y < H; y++) { a[y * W + x] = s / (2 * r + 1); s += t[Math.min(H - 1, y + r + 1) * W + x] - t[Math.max(0, y - r) * W + x]; } }
+}
+// how much the normal map bends outward (+, ridges and armour edges) or inward (-, seams and panel lines), about -1..1
+function curvature(bd, W, H, width) {
+  const n = W * H, nx = new Float32Array(n), ny = new Float32Array(n), sw = bd.width, sh = bd.height, d = bd.data;
+  for (let y = 0, i = 0; y < H; y++) { const sy = Math.min(sh - 1, Math.floor((y + 0.5) * sh / H));
+    for (let x = 0; x < W; x++, i++) { const j = (sy * sw + Math.min(sw - 1, Math.floor((x + 0.5) * sw / W))) * 4; nx[i] = d[j] / 127.5 - 1; ny[i] = d[j + 1] / 127.5 - 1; } }
+  const c = new Float32Array(n);
+  for (let y = 0, i = 0; y < H; y++) for (let x = 0; x < W; x++, i++)
+    c[i] = (nx[x < W - 1 ? i + 1 : i] - nx[x > 0 ? i - 1 : i]) + (ny[y < H - 1 ? i + W : i] - ny[y > 0 ? i - W : i]);
+  if (width > 0) boxBlur(c, W, H, Math.round(width));
+  const smp = []; for (let i = 0; i < n; i += 7) if (c[i]) smp.push(Math.abs(c[i]));
+  smp.sort((a, b) => a - b); const k = smp[Math.floor(smp.length * 0.985)] || 1;
+  for (let i = 0; i < n; i++) c[i] /= k;
+  return c;
+}
+// fill texels outside the triangles from their neighbours, so the mask doesn't fade at UV island edges
+function bleed(v, cov, W, H, passes) {
+  const have = Uint8Array.from(cov);
+  for (let p = 0; p < passes; p++) {
+    const add = [];
+    for (let i = 0; i < W * H; i++) if (!have[i]) { const x = i % W;
+      const j = x > 0 && have[i - 1] ? i - 1 : x < W - 1 && have[i + 1] ? i + 1 : i >= W && have[i - W] ? i - W : i < W * (H - 1) && have[i + W] ? i + W : -1;
+      if (j >= 0) add.push(i, j); }
+    for (let k = 0; k < add.length; k += 2) { v[add[k]] = v[add[k + 1]]; have[add[k]] = 1; }
+  }
+}
+function genMask(m, L) {
+  const g = L.gen, bk = bake(m), W = bk.w, H = bk.h, n = W * H, out = new Float32Array(n);
+  const thr = 1 - g.amount, lo = thr - g.soft * 0.5, hi = thr + g.soft * 0.5 + 1e-3;
+  const ext = MODEL.hi.map((v, k) => v - MODEL.lo[k]), Hm = MODEL.height, P = bk.pos;
+  const noiseAt = (nz, i, sc) => fbm(nz, (MODEL.lo[0] + P[i * 3] * ext[0]) / Hm * sc, (MODEL.lo[1] + P[i * 3 + 1] * ext[1]) / Hm * sc, (MODEL.lo[2] + P[i * 3 + 2] * ext[2]) / Hm * sc);
+  let worldBased = true;
+  if (g.kind === 'edges' || g.kind === 'cavity') {
+    if (!m.bumpData) return 'This material has no normal map, so it has no edges or cavities to find. Try Grunge or Dirt from the ground up.';
+    const c = curvature(m.bumpData, W, H, g.width), sg = g.kind === 'edges' ? 1 : -1;
+    for (let i = 0; i < n; i++) out[i] = sstep(lo, hi, Math.max(0, c[i] * sg));
+    worldBased = false;
+  } else if (g.kind === 'ground') {
+    const h = g.amount * 0.6, s = g.soft * 0.3 + 1e-3;
+    for (let i = 0; i < n; i++) if (bk.cov[i]) out[i] = 1 - sstep(h - s, h + s, P[i * 3 + 2]);
+  } else if (g.kind === 'top') {
+    const t = 1 - g.amount * 2;
+    for (let i = 0; i < n; i++) if (bk.cov[i]) out[i] = sstep(t - g.soft, t + g.soft + 1e-3, bk.nrm[i * 3 + 2]);
+  } else if (g.kind === 'grunge') {
+    const nz = noise3(g.seed);
+    for (let i = 0; i < n; i++) if (bk.cov[i]) out[i] = sstep(lo, hi, noiseAt(nz, i, g.scale));
+  }
+  if (g.breakup > 0) {   // break it up with noise on the model (no seams between UV islands)
+    const nz = noise3(g.seed + 1);
+    for (let i = 0; i < n; i++) if (bk.cov[i]) out[i] *= 1 - g.breakup * (1 - sstep(0.3, 0.7, noiseAt(nz, i, g.scale)));
+  }
+  if (g.invert) for (let i = 0; i < n; i++) out[i] = 1 - out[i];
+  if (worldBased || g.breakup > 0) bleed(out, bk.cov, W, H, 4);
+  const c = canvas(W, H), x = ctx2(c), im = x.createImageData(W, H);
+  for (let i = 0; i < n; i++) { const j = i * 4; im.data[j] = im.data[j + 1] = im.data[j + 2] = 255; im.data[j + 3] = out[i] * 255; }
+  x.putImageData(im, 0, 0);
+  const mx = ctx2(L.mask); mx.clearRect(0, 0, m.w, m.h); mx.imageSmoothingQuality = 'high'; mx.drawImage(c, 0, 0, m.w, m.h);
+  return null;
+}
+function runGen(m, L) { const err = genMask(m, L); flash(err || ''); L.thumbDirty = true; touchAll(m); }
+
+// ---------------------------------------------------------------- 3D and 2D views (one WebGL canvas)
+const G = { yaw: 0.35, pitch: 0.12, dist: 100, pan: [0, 0, 0], layout: 'split', t2: { s: 1, x: 0, y: 0, asp: 1, fit: true }, ver: 0 };
 const PICK_VS = `attribute vec3 aP; attribute vec2 aUV; uniform mat4 uMVP; varying vec2 vUV;
 void main() { vUV = aUV; gl_Position = uMVP * vec4(aP, 1.0); }`;
 // mode 0: texture coordinate (12 bits each) and material; mode 1: depth (24 bits), for unprojecting the point
@@ -466,14 +903,24 @@ void main() {
   if (uMode > 0.5) { vec3 e = fract(gl_FragCoord.z * vec3(1.0, 255.0, 65025.0)); e -= e.yzz * vec3(1.0 / 255.0, 1.0 / 255.0, 0.0); gl_FragColor = vec4(e, 1.0); return; }
   vec2 f = fract(vUV); float u = floor(f.x * 4095.0 + 0.5), v = floor(f.y * 4095.0 + 0.5);
   gl_FragColor = vec4(floor(u / 16.0) / 255.0, (mod(u, 16.0) * 16.0 + floor(v / 256.0)) / 255.0, mod(v, 256.0) / 255.0, uId / 255.0); }`;
+// the 2D texture view: the texture on a checkerboard, and the UV lines
+const FLAT_VS = `attribute vec2 aQ; uniform vec4 uXf; varying vec2 vUV; void main() { vUV = aQ; gl_Position = vec4(aQ * uXf.xy + uXf.zw, 0.0, 1.0); }`;
+const FLAT_FS = `precision mediump float; varying vec2 vUV; uniform sampler2D uT; uniform float uMode; uniform vec4 uCol;
+void main() { if (uMode > 0.5) { gl_FragColor = uCol; return; }
+  vec4 t = texture2D(uT, vUV); vec2 g = floor(gl_FragCoord.xy / 8.0); float ck = mod(g.x + g.y, 2.0) > 0.5 ? 0.30 : 0.21;
+  gl_FragColor = vec4(mix(vec3(ck), t.rgb, t.a), 1.0); }`;
 function initGL() {
   const cv = $('gl'), gl = cv.getContext('webgl', { antialias: true });
   if (!gl) throw new Error('WebGL is not available in this browser');
   gl.getExtension('OES_element_index_uint');
   G.gl = gl; G.R = SRC.program(gl); gl.enable(gl.DEPTH_TEST);
   const sh = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; };
-  const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, PICK_VS)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, PICK_FS)); gl.linkProgram(p);
-  G.pick = { prog: p, mvp: gl.getUniformLocation(p, 'uMVP'), id: gl.getUniformLocation(p, 'uId'), mode: gl.getUniformLocation(p, 'uMode'), aP: gl.getAttribLocation(p, 'aP'), aUV: gl.getAttribLocation(p, 'aUV') };
+  const prog = (vs, fs) => { const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p)); return p; };
+  const u = (p, n) => gl.getUniformLocation(p, n), a = (p, n) => gl.getAttribLocation(p, n);
+  let p = prog(PICK_VS, PICK_FS); G.pick = { prog: p, mvp: u(p, 'uMVP'), id: u(p, 'uId'), mode: u(p, 'uMode'), aP: a(p, 'aP'), aUV: a(p, 'aUV') };
+  p = prog(BAKE_VS, BAKE_FS); G.bake = { prog: p, lo: u(p, 'uLo'), sz: u(p, 'uSz'), mode: u(p, 'uMode'), aP: a(p, 'aP'), aN: a(p, 'aN'), aUV: a(p, 'aUV') };
+  p = prog(FLAT_VS, FLAT_FS); G.flat = { prog: p, xf: u(p, 'uXf'), mode: u(p, 'uMode'), col: u(p, 'uCol'), t: u(p, 'uT'), aQ: a(p, 'aQ') };
+  G.quad = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, G.quad); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]), gl.STATIC_DRAW);
   G.fb = gl.createFramebuffer(); G.fbTex = gl.createTexture(); G.fbDepth = gl.createRenderbuffer();
 }
 const v3 = { sub: (a, b) => a.map((v, i) => v - b[i]), add: (a, b) => a.map((v, i) => v + b[i]), scale: (a, s) => a.map(v => v * s), cross: (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]], norm: a => { const l = Math.hypot(...a) || 1; return a.map(v => v / l); }, dot: (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2] };
@@ -488,21 +935,36 @@ function camera(w, h) {
 }
 const shownDraws = () => MODEL.draws.filter(d => d.choice === undefined || d.choice === (MODEL.bg[d.bp] || 0));
 const FLAT = { amb: [[1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1]], key: [[0, 0, 1], [0, 0, 0]], fill: [[0, 0, 1], [0, 0, 0]] };
+// the views' rectangles in canvas pixels, [x, y, w, h] from the top left
+function VIEWS() {
+  const W = G.gl.canvas.width, H = G.gl.canvas.height, h = Math.floor(W / 2);
+  return G.layout === '3d' ? { v3: [0, 0, W, H] } : G.layout === '2d' ? { v2: [0, 0, W, H] } : { v3: [0, 0, h, H], v2: [h, 0, W - h, H] };
+}
+const setVP = v => G.gl.viewport(v[0], G.gl.canvas.height - v[1] - v[3], v[2], v[3]);
 function draw() {
   const gl = G.gl, cv = gl.canvas, dpr = Math.min(2, devicePixelRatio || 1), w = Math.round(cv.clientWidth * dpr), h = Math.round(cv.clientHeight * dpr);
-  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
-  gl.viewport(0, 0, w, h);
-  gl.clearColor(0.043, 0.055, 0.078, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; G.t2.fit = true; }
+  gl.viewport(0, 0, w, h); gl.clearColor(0.043, 0.055, 0.078, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   if (!MODEL) return;
-  for (const m of MODEL.mats) {
-    if (m.dirty) composite(m);
-    if (m.upload) { if (!m.tex) m.tex = SRC.texture(gl, m.comp); else SRC.upload(gl, m.tex, m.comp); m.upload = false; }
+  for (const m of MODEL.mats) {   // composite what changed and send only that rectangle to the GPU
+    if (m.dirtyRect) composite(m);
+    if (!m.upRect) continue;
+    const [x0, y0, x1, y1] = m.upRect; m.upRect = null;
+    if (!m.tex) m.tex = SRC.texture(gl, m.comp);
+    else if (x1 - x0 === m.w && y1 - y0 === m.h) SRC.upload(gl, m.tex, m.comp);
+    else { gl.bindTexture(gl.TEXTURE_2D, m.tex); gl.texSubImage2D(gl.TEXTURE_2D, 0, x0, y0, gl.RGBA, gl.UNSIGNED_BYTE, ctx2(m.comp).getImageData(x0, y0, x1 - x0, y1 - y0)); gl.generateMipmap(gl.TEXTURE_2D); }
   }
-  const cam = camera(w, h), flat = $('rig').value === 'flat';
+  const V = VIEWS();
+  if (V.v3) draw3D(V.v3);
+  if (V.v2) draw2D(V.v2);
+}
+function draw3D(v) {
+  const gl = G.gl; setVP(v); gl.enable(gl.DEPTH_TEST);
+  const cam = camera(v[2], v[3]), flat = $('rig').value === 'flat';
   SRC.frame(G.R, cam.mvp, cam.eye, cam.view, flat ? FLAT : $('rig').value);
   const pass = see => { for (const d of shownDraws()) {
     const m = MODEL.mats[d.mat], look = Object.assign({}, m.look);
-    if (flat) Object.assign(look, { phong: false, rimlight: false, halflambert: false, color2: [1, 1, 1] });
+    if (flat || (T.show === 'mask' && m === active)) Object.assign(look, { phong: false, rimlight: false, halflambert: false, color2: [1, 1, 1] });
     if ((look.alphaMode === 2) !== see) continue;
     SRC.draw(G.R, MODEL.mesh, look, { base: m.tex, bump: flat ? null : m.bump, exp: m.exp }, d.start, d.count);
   } };
@@ -510,14 +972,46 @@ function draw() {
   gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false); pass(true);
   gl.disable(gl.BLEND); gl.depthMask(true);
 }
-// what is under a screen point: { mat, u, v } (u, v in 0..1) or null
-function pickAt(px, py) {
-  const o = pickPass(px, py, 0); if (!o[3]) return null;
-  const u = o[0] * 16 + (o[1] >> 4), v = (o[1] & 15) * 256 + o[2];
-  return { mat: o[3] - 1, u: (u + 0.5) / 4096, v: (v + 0.5) / 4096 };
+function fit2D() {
+  const v = VIEWS().v2; if (!v || !active) return;
+  const t = G.t2; t.asp = active.h / active.w; t.s = Math.min(v[2] * 0.94, v[3] * 0.94 / t.asp); t.x = (v[2] - t.s) / 2; t.y = (v[3] - t.s * t.asp) / 2; t.fit = false;
 }
-function pickPass(px, py, mode) {
-  const gl = G.gl, cv = gl.canvas, w = cv.width, h = cv.height, P = G.pick;
+function draw2D(v) {
+  const gl = G.gl, F = G.flat; if (!active || !active.tex) return;
+  if (G.t2.fit || G.t2.asp !== active.h / active.w) fit2D();
+  setVP(v); gl.enable(gl.SCISSOR_TEST); gl.scissor(v[0], gl.canvas.height - v[1] - v[3], v[2], v[3]);
+  gl.clearColor(0.055, 0.07, 0.1, 1); gl.clear(gl.COLOR_BUFFER_BIT); gl.disable(gl.DEPTH_TEST);
+  const t = G.t2; gl.useProgram(F.prog);
+  gl.uniform4f(F.xf, 2 * t.s / v[2], -2 * t.s * t.asp / v[3], 2 * t.x / v[2] - 1, 1 - 2 * t.y / v[3]);
+  for (let i = 0; i < 8; i++) gl.disableVertexAttribArray(i);
+  gl.bindBuffer(gl.ARRAY_BUFFER, G.quad); gl.enableVertexAttribArray(F.aQ); gl.vertexAttribPointer(F.aQ, 2, gl.FLOAT, false, 8, 0);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, active.tex); gl.uniform1i(F.t, 0); gl.uniform1f(F.mode, 0);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  if ($('wire').checked) {
+    const wr = wireOf(MODEL.mats.indexOf(active));
+    gl.bindBuffer(gl.ARRAY_BUFFER, MODEL.mesh.vb); gl.vertexAttribPointer(F.aQ, 2, gl.FLOAT, false, 48, 24);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, wr.ib); gl.uniform1f(F.mode, 1); gl.uniform4f(F.col, 1, 1, 1, 0.22);
+    gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.drawElements(gl.LINES, wr.n, gl.UNSIGNED_INT, 0); gl.disable(gl.BLEND);
+  }
+  gl.disableVertexAttribArray(F.aQ); gl.disable(gl.SCISSOR_TEST); gl.enable(gl.DEPTH_TEST);
+}
+// the UV edges of a material's shown triangles, as GL lines
+function wireOf(slot) {
+  const key = slot + JSON.stringify(MODEL.bg); if (MODEL.wire && MODEL.wire.key === key) return MODEL.wire;
+  const idx = MODEL.idx, N = MODEL.verts.length / 8, seen = new Set(), out = [];
+  for (const d of shownDraws()) if (d.mat === slot) for (let k = d.start; k < d.start + d.count; k += 3)
+    for (const [a, b] of [[idx[k], idx[k + 1]], [idx[k + 1], idx[k + 2]], [idx[k + 2], idx[k]]]) { const lo = Math.min(a, b), hi = Math.max(a, b), e = lo * N + hi; if (!seen.has(e)) { seen.add(e); out.push(lo, hi); } }
+  const gl = G.gl; if (MODEL.wire) gl.deleteBuffer(MODEL.wire.ib);
+  const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(out), gl.STATIC_DRAW);
+  return (MODEL.wire = { key, ib, n: out.length });
+}
+// what is under a point of the 3D view: rendered once per camera position and read back whole, so a stroke only looks
+// numbers up instead of stalling the GPU for every mouse event
+function pickBuf() {
+  const v = VIEWS().v3; if (!v || !MODEL) return null;
+  const w = v[2], h = v[3], key = [G.yaw, G.pitch, G.dist, G.pan.join(), w, h, JSON.stringify(MODEL.bg), G.ver].join('|');
+  if (G.pk && G.pk.key === key) return G.pk;
+  const gl = G.gl, P = G.pick;
   if (G.fbW !== w || G.fbH !== h) {
     gl.bindTexture(gl.TEXTURE_2D, G.fbTex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
@@ -528,35 +1022,48 @@ function pickPass(px, py, mode) {
     gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, G.fbDepth);
     G.fbW = w; G.fbH = h;
   }
-  gl.bindFramebuffer(gl.FRAMEBUFFER, G.fb); gl.viewport(0, 0, w, h);
-  gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-  gl.useProgram(P.prog); gl.uniformMatrix4fv(P.mvp, false, camera(w, h).mvp); gl.uniform1f(P.mode, mode);
+  const pk = G.pk && G.pk.w === w && G.pk.h === h ? G.pk : { w, h, uv: new Uint8Array(w * h * 4), depth: new Uint8Array(w * h * 4) };
+  gl.bindFramebuffer(gl.FRAMEBUFFER, G.fb); gl.viewport(0, 0, w, h); gl.enable(gl.DEPTH_TEST); gl.disable(gl.BLEND);
+  gl.useProgram(P.prog); gl.uniformMatrix4fv(P.mvp, false, camera(w, h).mvp);
   const mesh = MODEL.mesh; gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vb); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.ib);
   for (let i = 0; i < 8; i++) gl.disableVertexAttribArray(i);
   gl.enableVertexAttribArray(P.aP); gl.vertexAttribPointer(P.aP, 3, gl.FLOAT, false, 48, 0);
   gl.enableVertexAttribArray(P.aUV); gl.vertexAttribPointer(P.aUV, 2, gl.FLOAT, false, 48, 24);
-  for (const d of shownDraws()) {
-    if (MODEL.mats[d.mat].look.alphaMode === 2) continue;   // see-through hair and glass: paint what is behind
-    gl.uniform1f(P.id, d.mat + 1); gl.drawElements(gl.TRIANGLES, d.count, mesh.type, d.start * mesh.bytes);
+  for (const mode of [0, 1]) {
+    gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); gl.uniform1f(P.mode, mode);
+    for (const d of shownDraws()) {
+      if (MODEL.mats[d.mat].look.alphaMode === 2) continue;   // see-through hair and glass: paint what is behind
+      gl.uniform1f(P.id, d.mat + 1); gl.drawElements(gl.TRIANGLES, d.count, mesh.type, d.start * mesh.bytes);
+    }
+    gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, mode ? pk.depth : pk.uv);
   }
-  const o = new Uint8Array(4); gl.readPixels(Math.round(px), Math.round(h - py), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, o);
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   for (let i = 0; i < 8; i++) gl.disableVertexAttribArray(i);
-  return o;
+  pk.key = key; return (G.pk = pk);
 }
-// the mirrored point: pick again at the mirror image of the surface point across the model's left/right middle
-function mirrorPick(px, py) {
-  const gl = G.gl, w = gl.canvas.width, h = gl.canvas.height, depth = depthAt(px, py);
-  if (depth === null) return null;
-  const cam = camera(w, h), inv = invert(cam.mvp), ndc = [px / w * 2 - 1, 1 - py / h * 2, depth * 2 - 1, 1];
-  const p = mul4(inv, ndc); const world = [p[0] / p[3], p[1] / p[3], p[2] / p[3]];
-  world[0] = 2 * MODEL.center[0] - world[0];   // models face -Y: left/right is X
-  const q = mul4(cam.mvp, [...world, 1]); if (q[3] <= 0) return null;
-  return pickAt((q[0] / q[3] * 0.5 + 0.5) * w, (0.5 - q[1] / q[3] * 0.5) * h);
+// px, py: canvas pixels inside the 3D view; { mat, u, v } (u, v in 0..1) or null
+function pickAt(px, py) {
+  const pk = pickBuf(); if (!pk) return null;
+  const x = Math.round(px), y = pk.h - 1 - Math.round(py); if (x < 0 || y < 0 || x >= pk.w || y >= pk.h) return null;
+  const i = (y * pk.w + x) * 4, o = pk.uv; if (!o[i + 3]) return null;
+  const u = o[i] * 16 + (o[i + 1] >> 4), v = (o[i + 1] & 15) * 256 + o[i + 2];
+  return { mat: o[i + 3] - 1, u: (u + 0.5) / 4096, v: (v + 0.5) / 4096 };
 }
 function depthAt(px, py) {
-  const o = pickPass(px, py, 1); if (!o[3]) return null;
-  return o[0] / 255 + o[1] / 65025 + o[2] / 16581375;
+  const pk = pickBuf(); if (!pk) return null;
+  const x = Math.round(px), y = pk.h - 1 - Math.round(py); if (x < 0 || y < 0 || x >= pk.w || y >= pk.h) return null;
+  const i = (y * pk.w + x) * 4, o = pk.depth; if (!o[i + 3]) return null;
+  return o[i] / 255 + o[i + 1] / 65025 + o[i + 2] / 16581375;
+}
+// the mirrored point: the mirror image of the surface point across the model's left/right middle, picked again
+function mirrorPick(px, py) {
+  const pk = pickBuf(), depth = depthAt(px, py);
+  if (depth === null) return null;
+  const cam = camera(pk.w, pk.h), inv = invert(cam.mvp), p = mul4(inv, [px / pk.w * 2 - 1, 1 - py / pk.h * 2, depth * 2 - 1, 1]);
+  const world = [p[0] / p[3], p[1] / p[3], p[2] / p[3]];
+  world[0] = 2 * MODEL.center[0] - world[0];   // models face -Y: left/right is X
+  const q = mul4(cam.mvp, [...world, 1]); if (q[3] <= 0) return null;
+  return pickAt((q[0] / q[3] * 0.5 + 0.5) * pk.w, (0.5 - q[1] / q[3] * 0.5) * pk.h);
 }
 function mul4(m, v) { return [0, 1, 2, 3].map(r => m[r] * v[0] + m[4 + r] * v[1] + m[8 + r] * v[2] + m[12 + r] * v[3]); }
 function invert(m) {
@@ -580,141 +1087,224 @@ function invert(m) {
   const det = a0 * inv[0] + a1 * inv[4] + a2 * inv[8] + a3 * inv[12];
   return inv.map(v => v / det);
 }
-
-// ---------------------------------------------------------------- painting
-// strokes are stamped in texture space; a stroke stays on the material it started on, and skips across UV seams
-// (a jump bigger than a few brush widths means the next point is on another UV island: start a new segment there)
-const stamp = (() => { const c = canvas(1, 1); return c; })();
-function brushTip(px, color, hard) {   // a round soft tip, px wide
-  const n = Math.max(2, Math.ceil(px)); stamp.width = stamp.height = n;
-  const x = ctx2(stamp), g = x.createRadialGradient(n / 2, n / 2, 0, n / 2, n / 2, n / 2), [r, gg, b] = hex2rgb(color);
-  g.addColorStop(0, `rgba(${r},${gg},${b},1)`); g.addColorStop(clamp(hard, 0, 0.98), `rgba(${r},${gg},${b},1)`); g.addColorStop(1, `rgba(${r},${gg},${b},0)`);
-  x.clearRect(0, 0, n, n); x.fillStyle = g; x.fillRect(0, 0, n, n); return stamp;
+// a point of the 2D view (canvas pixels inside it) as a texture spot on the selected material
+function hit2D(v, x, y) {
+  if (!active) return null; const t = G.t2, u = (x - t.x) / t.s, w = (y - t.y) / (t.s * t.asp);
+  return u >= 0 && w >= 0 && u < 1 && w < 1 ? { mat: MODEL.mats.indexOf(active), u, v: w } : null;
 }
-let stroke = null;
-function layerForPaint(m) {
-  let L = m.layers[m.sel];
-  if (L.kind === 'base') {   // never paint the original: start a paint layer above it
-    L = newLayer(m, 'paint'); flash('Added a paint layer to paint on (the base texture stays untouched).');
-  }
-  return L;
-}
-function beginStroke(hit) {
-  const m = MODEL.mats[hit.mat];
-  if (T.tool === 'pick') { pickColor(m, hit); return; }
-  if (m !== active) selectMat(m);
-  const L = layerForPaint(m);
-  m.undo.push({ L, data: ctx2(L.canvas).getImageData(0, 0, m.w, m.h) }); if (m.undo.length > 25) m.undo.shift();
-  stroke = { m, L, last: null, lastMirror: null };
-  strokeTo(hit, false);
-}
-function strokeTo(hit, mirrored) {
-  if (!stroke || !hit || MODEL.mats[hit.mat] !== stroke.m) return;
-  const { m, L } = stroke, key = mirrored ? 'lastMirror' : 'last', x = ctx2(L.canvas);
-  const p = [hit.u * m.w, hit.v * m.h], size = T.size * m.w / 1024, tip = brushTip(size, L.kind === 'fill' ? '#ffffff' : T.color, T.hard);
-  x.globalCompositeOperation = T.tool === 'erase' ? 'destination-out' : 'source-over';
-  x.globalAlpha = T.flow * 0.35;
-  const last = stroke[key], spacing = Math.max(1, size * 0.18);
-  const pts = [];
-  if (last && Math.hypot(p[0] - last[0], p[1] - last[1]) < size * 4) {
-    const d = Math.hypot(p[0] - last[0], p[1] - last[1]), n = Math.floor(d / spacing);
-    for (let i = 1; i <= n; i++) pts.push([last[0] + (p[0] - last[0]) * i / n, last[1] + (p[1] - last[1]) * i / n]);
-    if (!n) return;   // not far enough for the next dab
-  } else pts.push(p);
-  for (const [px, py] of pts) {
-    x.drawImage(tip, px - tip.width / 2, py - tip.height / 2);
-    // wrap across texture edges for tiling UVs
-    if (px < size) x.drawImage(tip, px + m.w - tip.width / 2, py - tip.height / 2);
-    if (px > m.w - size) x.drawImage(tip, px - m.w - tip.width / 2, py - tip.height / 2);
-  }
-  stroke[key] = pts[pts.length - 1];
-  x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1;
-  m.dirty = true; L.thumbDirty = true;
-}
-function endStroke() { if (stroke) { refreshThumbs(); markEdited(); } stroke = null; }
 function pickColor(m, hit) {
-  if (m.dirty) composite(m);
-  const d = ctx2(m.comp).getImageData(Math.floor(hit.u * m.w) % m.w, Math.floor(hit.v * m.h) % m.h, 1, 1).data;
-  T.color = rgb2hex([d[0], d[1], d[2]]); $('color').value = T.color; flash('Picked ' + T.color + '.');
-  if (active && active.layers[active.sel].kind === 'fill') { active.layers[active.sel].color = T.color; active.dirty = true; buildLayers(); }
-}
-function undo() {
-  if (!active || !active.undo.length) return;
-  const u = active.undo.pop(); ctx2(u.L.canvas).putImageData(u.data, 0, 0); active.dirty = true; u.L.thumbDirty = true; refreshThumbs();
+  const d = ctx2(finalOf(m)).getImageData(Math.floor(hit.u * m.w) % m.w, Math.floor(hit.v * m.h) % m.h, 1, 1).data;
+  setColor(rgb2hex([d[0], d[1], d[2]])); flash('Picked ' + T.color + '.');
+  if (active && active.layers[active.sel].kind === 'fill') { active.layers[active.sel].color = T.color; touchAll(active); buildLayers(); }
 }
 
-// pointer handling on the 3D view
+// pointer handling on the views
 function initView() {
   const cv = $('gl'), cur = $('cursor');
-  let mode = null, prev = null, spaceDown = false;
-  const scr = e => { const r = cv.getBoundingClientRect(), dpr = cv.width / r.width; return [(e.clientX - r.left) * dpr, (e.clientY - r.top) * dpr]; };
+  let drag = null, spaceDown = false;
+  const dev = e => { const r = cv.getBoundingClientRect(), k = cv.width / r.width; return [(e.clientX - r.left) * k, (e.clientY - r.top) * k, k]; };
+  const viewAt = x => { const V = VIEWS(); return V.v2 && (!V.v3 || x >= V.v2[0]) ? ['2d', V.v2] : ['3d', V.v3]; };
+  const hitOf = (kind, v, x, y) => kind === '3d' ? pickAt(x - v[0], y - v[1]) : hit2D(v, x - v[0], y - v[1]);
+  const pressure = e => e.pointerType === 'pen' ? (e.pressure || 0.5) : 1;
+  // a jump in texture space between two nearby screen points crosses a UV seam: check the screen midpoint
+  const seam = (pa, pb, ha, hb) => {
+    const m = MODEL.mats[ha.mat], d = Math.hypot((hb.u - ha.u) * m.w, (hb.v - ha.v) * m.h);
+    if (d < 3) return false;
+    const hm = hitOf('3d', drag.v, (pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2);
+    if (!hm || hm.mat !== ha.mat) return true;
+    return Math.hypot(((ha.u + hb.u) / 2 - hm.u) * m.w, ((ha.v + hb.v) / 2 - hm.v) * m.h) > Math.max(2, d * 0.3);
+  };
+  const paintPoint = (p, pr) => {
+    const hit = hitOf(drag.kind, drag.v, p[0], p[1]);
+    const jump = !drag.lastHit || (drag.kind === '3d' && hit && hit.mat === drag.lastHit.mat && seam(drag.lastP, p, drag.lastHit, hit));
+    strokeTo(hit, 0, pr, jump);
+    if (T.mirror && drag.kind === '3d') strokeTo(mirrorPick(p[0] - drag.v[0], p[1] - drag.v[1]), 1, pr, null);
+    drag.lastP = p.slice(); drag.lastHit = hit; G.lastPt = { kind: drag.kind, p: p.slice() };
+  };
+  const lineTo = (p, pr) => {   // screen steps of 2 px: texture spacing is handled by the stroke engine
+    const a = drag.lastP, n = Math.max(1, Math.ceil(Math.hypot(p[0] - a[0], p[1] - a[1]) / 2));
+    for (let i = 1; i <= n; i++) paintPoint([a[0] + (p[0] - a[0]) * i / n, a[1] + (p[1] - a[1]) * i / n], pr);
+  };
   cv.addEventListener('contextmenu', e => e.preventDefault());
   cv.addEventListener('pointerdown', e => {
-    if (!MODEL) return;
-    cv.setPointerCapture(e.pointerId); prev = [e.clientX, e.clientY];
-    if (e.button === 1) mode = 'pan';
-    else if (e.button === 2 || spaceDown || T.tool === 'orbit' || e.altKey) mode = 'orbit';
-    else {
-      const [x, y] = scr(e), hit = pickAt(x, y);
-      if (!hit) { mode = 'orbit'; return; }
-      mode = 'paint'; beginStroke(hit);
-      if (stroke && T.mirror) strokeTo(mirrorPick(x, y), true);
-      if (T.tool === 'pick') mode = null;
+    if (!MODEL || drag) return;
+    const [x, y] = dev(e), [kind, v] = viewAt(x);
+    cv.setPointerCapture(e.pointerId);
+    drag = { kind, v, prev: [e.clientX, e.clientY], mode: null };
+    if (e.button === 2 && (e.ctrlKey || e.metaKey)) drag.mode = 'resize';
+    else if (e.button === 1 || (kind === '2d' && (e.button === 2 || spaceDown || T.tool === 'orbit' || e.altKey))) drag.mode = 'pan';
+    else if (kind === '3d' && (e.button === 2 || spaceDown || T.tool === 'orbit' || e.altKey)) drag.mode = 'orbit';
+    else if (e.button === 0) {
+      const hit = hitOf(kind, v, x, y);
+      if (!hit) { drag.mode = kind === '3d' ? 'orbit' : 'pan'; return; }
+      if (T.tool === 'pick') { pickColor(MODEL.mats[hit.mat], hit); drag = null; return; }
+      if (T.tool === 'fill') { bucketAt(hit, kind === '3d' && T.mirror ? mirrorPick(x - v[0], y - v[1]) : null); drag = null; return; }
+      const line = e.shiftKey && G.lastPt && G.lastPt.kind === kind;
+      const from = line ? G.lastPt.p : [x, y], h0 = line ? hitOf(kind, v, from[0], from[1]) || hit : hit;
+      beginStroke(h0);
+      drag.mode = 'paint'; drag.sm = from.slice(); drag.lastP = from.slice(); drag.lastHit = null;
+      paintPoint(from, pressure(e));
+      if (line) { lineTo([x, y], pressure(e)); drag.sm = [x, y]; }
     }
   });
   cv.addEventListener('pointermove', e => {
     showCursor(e);
-    if (!mode) return;
-    const dx = e.clientX - prev[0], dy = e.clientY - prev[1]; prev = [e.clientX, e.clientY];
-    if (mode === 'orbit') { G.yaw -= dx * 0.01; G.pitch = clamp(G.pitch + dy * 0.01, -1.4, 1.4); }
-    else if (mode === 'pan') { const cam = camera(cv.width, cv.height), s = G.dist * 0.0016; G.pan = v3.add(G.pan, v3.add(v3.scale(cam.right, -dx * s), v3.scale(cam.up, dy * s))); }
-    else if (mode === 'paint') {
-      const [x, y] = scr(e);
-      for (const ce of e.getCoalescedEvents ? e.getCoalescedEvents() : [e]) { const [cx, cy] = scr(ce); strokeTo(pickAt(cx, cy), false); }
-      if (T.mirror) strokeTo(mirrorPick(x, y), true);
+    if (!drag || !drag.mode) return;
+    const dx = e.clientX - drag.prev[0], dy = e.clientY - drag.prev[1]; drag.prev = [e.clientX, e.clientY];
+    if (drag.mode === 'orbit') { G.yaw -= dx * 0.01; G.pitch = clamp(G.pitch + dy * 0.01, -1.4, 1.4); }
+    else if (drag.mode === 'pan' && drag.kind === '3d') { const v = drag.v, cam = camera(v[2], v[3]), s = G.dist * 0.0016; G.pan = v3.add(G.pan, v3.add(v3.scale(cam.right, -dx * s), v3.scale(cam.up, dy * s))); }
+    else if (drag.mode === 'pan') { const k = dev(e)[2]; G.t2.x += dx * k; G.t2.y += dy * k; }
+    else if (drag.mode === 'resize') { setSize(T.size * Math.exp(dx * 0.01)); T.hard = clamp(T.hard - dy * 0.004, 0, 1); syncSettings(); }
+    else if (drag.mode === 'paint') {
+      for (const ce of e.getCoalescedEvents ? e.getCoalescedEvents() : [e]) {   // lazy mouse: follow the pointer by (1 - smoothing)
+        const [x, y] = dev(ce), f = 1 - T.smooth;
+        drag.sm = [drag.sm[0] + (x - drag.sm[0]) * f, drag.sm[1] + (y - drag.sm[1]) * f];
+        lineTo(drag.sm, pressure(ce));
+      }
     }
   });
-  const up = () => { if (mode === 'paint') endStroke(); mode = null; };
+  const up = () => { if (drag && drag.mode === 'paint') endStroke(); drag = null; };
   cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
-  cv.addEventListener('pointerleave', () => cur.style.display = 'none');
-  cv.addEventListener('wheel', e => { e.preventDefault(); if (MODEL) G.dist = clamp(G.dist * Math.exp(e.deltaY * 0.0012), MODEL.height * 0.08, MODEL.height * 4); }, { passive: false });
+  cv.addEventListener('pointerleave', () => { cur.style.display = 'none'; });
+  cv.addEventListener('wheel', e => {
+    e.preventDefault(); if (!MODEL) return;
+    const [px, py] = dev(e), [kind, v] = viewAt(px);
+    if (kind === '3d') { G.dist = clamp(G.dist * Math.exp(e.deltaY * 0.0012), MODEL.height * 0.08, MODEL.height * 4); return; }
+    const t = G.t2, s = clamp(t.s * Math.exp(-e.deltaY * 0.0015), 50, 40000), lx = px - v[0], ly = py - v[1];
+    t.x = lx - (lx - t.x) * s / t.s; t.y = ly - (ly - t.y) * s / t.s; t.s = s; showCursor(e);
+  }, { passive: false });
   addEventListener('keydown', e => {
-    if (e.target.matches('input, select, textarea')) return;
+    if (e.target.matches('input:not([type=range]):not([type=checkbox]), select, textarea')) return;
+    const k = e.key.toLowerCase(), ctrl = e.ctrlKey || e.metaKey;
     if (e.code === 'Space') { spaceDown = true; e.preventDefault(); }
-    else if (e.key === '[') setSize(T.size / 1.2); else if (e.key === ']') setSize(T.size * 1.2);
-    else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
-    else if (!e.ctrlKey && !e.metaKey) { const t = { b: 'brush', e: 'erase', i: 'pick' }[e.key.toLowerCase()]; if (t) setTool(t); }
+    else if (ctrl && (k === 'y' || (k === 'z' && e.shiftKey))) { e.preventDefault(); redo(); }
+    else if (ctrl && k === 'z') { e.preventDefault(); undo(); }
+    else if (e.key === 'F1' || e.key === 'F2' || e.key === 'F3') { e.preventDefault(); setLayout({ F1: 'split', F2: '3d', F3: '2d' }[e.key]); }
+    else if (ctrl || e.altKey) return;
+    else if (e.code === 'BracketLeft' || e.code === 'BracketRight') { const up = e.code === 'BracketRight'; if (e.shiftKey) { T.hard = clamp(T.hard + (up ? 0.1 : -0.1), 0, 1); syncSettings(); } else setSize(T.size * (up ? 1.2 : 1 / 1.2)); }
+    else if (/^[0-9]$/.test(e.key)) { T.flow = (+e.key || 10) / 10; syncSettings(); }
+    else if (k === 'm') { T.mirror = !T.mirror; syncSettings(); flash('Mirror ' + (T.mirror ? 'on' : 'off') + '.'); }
+    else if (k === 'f') { G.t2.fit = true; }
+    else { const t = { b: 'brush', e: 'erase', g: 'fill', r: 'blur', s: 'smudge', i: 'pick' }[k]; if (t) setTool(t); }
   });
   addEventListener('keyup', e => { if (e.code === 'Space') spaceDown = false; });
-  // the brush outline: its texture size projected roughly onto the screen at the point under the cursor
+  // the brush outline: exact in the 2D view, roughly projected in the 3D view
   function showCursor(e) {
-    if (!MODEL || T.tool === 'orbit') { cur.style.display = 'none'; return; }
-    const r = cv.getBoundingClientRect(), H = MODEL.height, texelsPerUnit = (active ? active.w : 1024) / (H * 0.9);
-    const worldSize = T.size / 1024 * (active ? active.w : 1024) / texelsPerUnit, px = worldSize / G.dist * (r.height / 2) / Math.tan(0.35) * 0.5;
-    const d = clamp(px, 4, 400);
+    if (!MODEL || !BRUSHY.has(T.tool)) { cur.style.display = 'none'; return; }
+    const r = cv.getBoundingClientRect(), [x, , k] = dev(e), [kind, v] = viewAt(x);
+    let d;
+    if (kind === '2d') d = T.size / 1024 * G.t2.s / k;
+    else { const worldSize = T.size / 1024 * MODEL.height * 0.9; d = worldSize / G.dist * (v[3] / k / 2) / Math.tan(0.35) * 0.5; }
+    d = clamp(d, 4, 600);
     cur.style.display = 'block'; cur.style.width = cur.style.height = d + 'px';
     cur.style.left = (e.clientX - r.left - d / 2) + 'px'; cur.style.top = (e.clientY - r.top - d / 2) + 'px';
   }
 }
-// the 2D texture panel: shows the composite and takes paint too
-function initUV() {
-  const cv = $('uv'); let down = false;
-  const hitOf = e => { const r = cv.getBoundingClientRect(); return active && { mat: MODEL.mats.indexOf(active), u: clamp((e.clientX - r.left) / r.width, 0, 0.9999), v: clamp((e.clientY - r.top) / r.height, 0, 0.9999) }; };
-  cv.addEventListener('pointerdown', e => { const h = hitOf(e); if (!h || T.tool === 'orbit') return; cv.setPointerCapture(e.pointerId); beginStroke(h); down = T.tool !== 'pick'; });
-  cv.addEventListener('pointermove', e => { if (down) strokeTo(hitOf(e), false); });
-  const up = () => { if (down) endStroke(); down = false; };
-  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+
+// ---------------------------------------------------------------- tool panel
+const TOOLS = [['brush', 'Brush', 'B'], ['erase', 'Eraser', 'E'], ['fill', 'Fill', 'G'], ['blur', 'Blur', 'R'], ['smudge', 'Smudge', 'S'], ['pick', 'Picker', 'I'], ['orbit', 'Orbit', 'Space']];
+// [key, label, min, max, unit, tools, group]; '%' values are kept as fractions
+const SLIDERS = [
+  ['size', 'Size', 1, 400, 'px', 'brush erase blur smudge', ''],
+  ['flow', 'Flow', 1, 100, '%', 'brush erase blur smudge', ''],
+  ['opacity', 'Opacity', 1, 100, '%', 'brush erase fill', ''],
+  ['hard', 'Hardness', 0, 100, '%', 'brush erase blur smudge', ''],
+  ['tol', 'Tolerance', 0, 100, '', 'fill', ''],
+  ['spacing', 'Spacing', 2, 300, '%', 'brush erase blur smudge', 'Stroke'],
+  ['angle', 'Angle', 0, 359, '°', 'brush erase', 'Stroke'],
+  ['smooth', 'Smoothing', 0, 95, '%', 'brush erase blur smudge', 'Stroke'],
+  ['jSize', 'Size', 0, 100, '%', 'brush erase', 'Jitter'],
+  ['jAngle', 'Angle', 0, 100, '%', 'brush erase', 'Jitter'],
+  ['jPos', 'Scatter', 0, 200, '%', 'brush erase', 'Jitter'],
+  ['jFlow', 'Flow', 0, 100, '%', 'brush erase', 'Jitter'],
+];
+const CHECKS = [
+  ['follow', 'Turn with the stroke', 'brush erase', 'Stroke'],
+  ['pSize', 'Pen pressure sets size', 'brush erase blur smudge', 'Stroke'],
+  ['pFlow', 'Pen pressure sets flow', 'brush erase blur smudge', 'Stroke'],
+  ['contig', 'Only the connected area', 'fill', ''],
+  ['mirror', 'Mirror left/right (M)', 'brush erase fill blur smudge', ''],
+];
+const TIPS = { flow: 'How much each dab adds. Low flow builds up as you go over it.', opacity: 'The most one stroke can cover, however long you paint.',
+  spacing: 'Gap between dabs, in brush widths', smooth: 'Lags the brush behind the pointer for steadier lines', tol: 'How different a colour can be and still be filled',
+  jPos: 'Scatters dabs sideways', size: 'Brush width in texture pixels (of a 1024 texture)' };
+const UI = {};
+function buildSettings() {
+  const P = $('settings'), groups = {};
+  const host = g => { if (!g) return P; if (!groups[g]) { const d = document.createElement('details'); d.className = 'grp'; d.innerHTML = '<summary></summary>'; d.firstChild.textContent = g; P.appendChild(d); groups[g] = d; } return groups[g]; };
+  const fm = document.createElement('label'); fm.className = 'f'; fm.dataset.tools = 'fill';
+  fm.innerHTML = '<span>Fill by</span><select id="fillMode"><option value="colour">Similar colour</option><option value="uv">UV island</option><option value="piece">Marked piece</option><option value="mat">Whole material</option></select><span></span>';
+  P.appendChild(fm); fm.children[1].onchange = e => { T.fillMode = e.target.value; refreshSettingsVis(); };
+  for (const [k, label, min, max, unit, tools, g] of SLIDERS) {
+    const l = document.createElement('label'); l.className = 'f'; l.dataset.tools = tools; l.dataset.k = k; if (TIPS[k]) l.title = TIPS[k];
+    l.innerHTML = `<span></span><input type="range" min="${min}" max="${max}"><output></output>`; l.firstChild.textContent = label;
+    const r = l.children[1]; UI[k] = { r, o: l.children[2], unit };
+    r.oninput = () => { T[k] = unit === '%' ? r.value / 100 : +r.value; showVal(k); };
+    host(g).appendChild(l);
+  }
+  for (const [k, label, tools, g] of CHECKS) {
+    const l = document.createElement('label'); l.className = 'chk'; l.dataset.tools = tools; l.innerHTML = '<input type="checkbox"><span></span>'; l.lastChild.textContent = label;
+    const c = l.firstChild; UI[k] = { c }; c.onchange = () => { T[k] = c.checked; };
+    host(g).appendChild(l);
+  }
+  const note = document.createElement('p'); note.className = 'note'; note.dataset.tools = 'blur smudge';
+  note.textContent = 'Works on what you see and puts the result on the selected paint layer (or mask).'; P.appendChild(note);
 }
-function drawUV() {
-  const cv = $('uv'), x = cv.getContext('2d');
-  x.fillStyle = '#0b0e14'; x.fillRect(0, 0, cv.width, cv.height);
-  if (active) { x.imageSmoothingQuality = 'high'; x.drawImage(active.comp, 0, 0, cv.width, cv.height); }
+function showVal(k) { const u = UI[k], v = T[k]; u.o.textContent = u.unit === '%' ? Math.round(v * 100) + '%' : Math.round(v) + (u.unit === '°' ? '°' : ''); }
+function syncSettings() {
+  for (const k in UI) { const u = UI[k]; if (u.r) { u.r.value = u.unit === '%' ? Math.round(T[k] * 100) : T[k]; showVal(k); } else u.c.checked = !!T[k]; }
+  $('color').value = T.color; $('fillMode').value = T.fillMode; refreshSettingsVis();
+}
+function refreshSettingsVis() {
+  document.querySelectorAll('#settings [data-tools]').forEach(el => {
+    el.hidden = !el.dataset.tools.split(' ').includes(T.tool) || (el.dataset.k === 'hard' && !(ALPHAS[T.alpha] || {}).hard) || (el.dataset.k === 'tol' && T.fillMode !== 'colour');
+  });
+  document.querySelectorAll('#settings details').forEach(d => { d.hidden = ![...d.querySelectorAll('[data-tools]')].some(x => !x.hidden); });
+  $('gl').classList.toggle('cross', !BRUSHY.has(T.tool) && T.tool !== 'orbit');
+}
+function setTool(t) { T.tool = t; document.querySelectorAll('#tools button').forEach(b => b.classList.toggle('on', b.dataset.tool === t)); refreshSettingsVis(); }
+function setSize(v) { T.size = clamp(Math.round(v), 1, 400); if (UI.size) { UI.size.r.value = T.size; showVal('size'); } }
+function setColor(c) { T.color = c; $('color').value = c; }
+const PALETTE = ['#ffffff', '#d6d6d6', '#9a9a9a', '#5c5c5c', '#2c2c2c', '#111111', '#2f5fa8', '#4e94e6', '#e07a1f', '#d9b23c', '#b8302a', '#7a1f1f', '#5f7a3a', '#3e4d2a', '#7a6a52', '#6b4a8e'];
+function addRecent(c) { if (T.recent[0] === c) return; T.recent = [c, ...T.recent.filter(x => x !== c)].slice(0, 6); buildSwatches(); }
+function buildSwatches() {
+  const P = $('swatches'); P.innerHTML = '';
+  [...T.recent, ...PALETTE.filter(c => !T.recent.includes(c))].slice(0, 16).forEach(c => {
+    const b = document.createElement('button'); b.style.background = c; b.title = c; b.setAttribute('aria-label', 'Colour ' + c); b.onclick = () => setColor(c); P.appendChild(b);
+  });
+}
+function buildBrushes() {
+  const P = $('presets'); P.innerHTML = '';
+  for (const p of PRESETS) {
+    const b = document.createElement('button'); b.dataset.name = p.name; b.innerHTML = '<canvas width="120" height="36"></canvas><span></span>'; b.lastChild.textContent = p.name;
+    const cv = b.firstChild, x = cv.getContext('2d'), Q = Object.assign({}, PRESET_BASE, p, { pSize: false, pFlow: false }), tip = tipFor(Q.alpha, Q.hard, '#dfe5ee');
+    const S = { size: Q.alpha === 'splat' || Q.alpha === 'star' || Q.alpha === 'ring' ? 18 : 13 };
+    for (let i = 0; i <= 80; i++) { const t = i / 80; trail(S, Q, [10 + t * 100, 18 + Math.sin(t * Math.PI * 2) * 8], 1, false, (px, py, size, ang, a) => stampTip(x, tip, px, py, size, ang, a, 0)); }
+    b.onclick = () => applyPreset(p); P.appendChild(b);
+  }
+  buildAlphas(); markBrush();
+}
+function buildAlphas() {
+  const P = $('alphas'); P.innerHTML = '';
+  for (const [k, A] of Object.entries(ALPHAS)) {
+    const b = document.createElement('button'); b.dataset.k = k; b.title = A.name; b.setAttribute('aria-label', 'Brush shape: ' + A.name);
+    b.innerHTML = '<canvas width="40" height="40"></canvas>'; b.firstChild.getContext('2d').drawImage(alphaOfShape(k, 0.6), 0, 0, 40, 40);
+    b.onclick = () => { T.alpha = k; T.preset = ''; if (!BRUSHY.has(T.tool)) setTool('brush'); markBrush(); refreshSettingsVis(); };
+    P.appendChild(b);
+  }
+}
+function markBrush() {
+  document.querySelectorAll('#presets button').forEach(b => b.classList.toggle('on', b.dataset.name === T.preset));
+  document.querySelectorAll('#alphas button').forEach(b => b.classList.toggle('on', b.dataset.k === T.alpha));
+}
+function applyPreset(p) {
+  const { name, ...v } = p; Object.assign(T, PRESET_BASE, v); T.preset = name;
+  if (!BRUSHY.has(T.tool)) setTool('brush');
+  markBrush(); syncSettings();
 }
 
-// ---------------------------------------------------------------- side panels
-function setTool(t) { T.tool = t; document.querySelectorAll('[data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === t)); }
-function setSize(v) { T.size = clamp(Math.round(v), 1, 200); $('size').value = T.size; $('sizeOut').textContent = T.size; }
-function markEdited() { document.querySelectorAll('#mats button').forEach((b, i) => b.classList.toggle('edited', !!MODEL.mats[b.dataset.i] && edited(MODEL.mats[b.dataset.i]))); }
+// ---------------------------------------------------------------- materials and layers panels
+function markEdited() { if (!MODEL) return; document.querySelectorAll('#mats button').forEach(b => b.classList.toggle('edited', !!MODEL.mats[b.dataset.i] && edited(MODEL.mats[b.dataset.i]))); }
 function buildMats() {
   const P = $('mats'); P.innerHTML = '';
   const used = new Set(shownDraws().map(d => d.mat));
@@ -726,32 +1316,42 @@ function buildMats() {
   markEdited();
 }
 function selectMat(m) {
-  active = m; document.querySelectorAll('#mats button').forEach(b => b.classList.toggle('on', MODEL.mats[b.dataset.i] === m));
+  const prev = active; active = m;
+  if (T.show === 'mask') { touchAll(prev); touchAll(m); }
+  document.querySelectorAll('#mats button').forEach(b => b.classList.toggle('on', MODEL.mats[b.dataset.i] === m));
   $('sub').textContent = MODEL.label + ' · ' + m.name + ` (${m.w}×${m.h})`;
-  buildLayers();
+  G.t2.fit = true; buildLayers();
 }
 function newLayer(m, kind, opts = {}) {
-  const c = canvas(m.w, m.h);
-  if (kind === 'fill' && !opts.mask) { const x = ctx2(c); x.fillStyle = '#fff'; x.fillRect(0, 0, m.w, m.h); }
-  if (opts.mask) ctx2(c).drawImage(opts.mask, 0, 0, m.w, m.h);
-  const n = m.layers.filter(l => l.kind === kind).length + 1;
-  const L = { name: opts.name || (kind === 'fill' ? 'Fill ' : 'Paint ') + n, kind, canvas: c, color: opts.color || T.color, opacity: 1, blend: opts.blend || 'source-over', visible: true, thumbDirty: true };
-  m.layers.splice(m.sel + 1, 0, L); m.sel++; m.dirty = true;
-  if (m === active) buildLayers();
-  markEdited();
+  let L;
+  act(m, () => {
+    const n = m.layers.filter(l => l.kind === kind).length + 1;
+    L = { name: opts.name || { paint: 'Paint ', fill: 'Fill ', adjust: 'Adjust ' }[kind] + n, kind, opacity: 1, blend: opts.blend || 'source-over', visible: true, thumbDirty: true,
+      canvas: kind === 'paint' ? canvas(m.w, m.h) : null, color: opts.color || T.color, adj: kind === 'adjust' ? { hue: 0, sat: 1, light: 1, con: 1 } : null, gen: null,
+      mask: kind === 'paint' ? null : opts.mask ? (() => { const c = canvas(m.w, m.h); ctx2(c).drawImage(opts.mask, 0, 0, m.w, m.h); return c; })() : white(m.w, m.h) };
+    m.layers.splice(m.sel + 1, 0, L); m.sel++; m.target = kind === 'paint' ? 'content' : 'mask';
+  });
   return L;
 }
 function buildLayers() {
   const P = $('layers'); P.innerHTML = '';
   if (!active) return;
-  [...active.layers].map((L, i) => [L, i]).reverse().forEach(([L, i]) => {
-    const r = document.createElement('div'); r.className = 'layer' + (i === active.sel ? ' on' : '');
-    r.innerHTML = '<input type="checkbox" aria-label="Show layer"><canvas width="34" height="34"></canvas><span class="nm"><span></span><span class="kind"></span></span><span></span>';
-    const [vis, th, nm] = r.children;
-    vis.checked = L.visible; vis.onclick = e => e.stopPropagation(); vis.onchange = () => { L.visible = vis.checked; active.dirty = true; };
-    nm.firstChild.textContent = L.name; nm.lastChild.textContent = L.kind === 'base' ? 'original' : L.kind === 'fill' ? 'fill · ' + blendName(L.blend) : 'paint · ' + blendName(L.blend);
-    L.thumb = th; L.thumbDirty = true;
-    r.onclick = () => { active.sel = i; buildLayers(); };
+  const m = active, tgt = targetOf(m);
+  [...m.layers].map((L, i) => [L, i]).reverse().forEach(([L, i]) => {
+    const r = document.createElement('div'); r.className = 'layer' + (i === m.sel ? ' on' : '');
+    r.innerHTML = '<input type="checkbox" aria-label="Show layer"><span class="th"><canvas width="32" height="32"></canvas></span><span class="nm"><span></span><span class="kind"></span></span>';
+    const [vis, th, nm] = r.children, ct = th.firstChild;
+    vis.checked = L.visible; vis.onclick = e => e.stopPropagation(); vis.onchange = () => { L.visible = vis.checked; touchAll(m); };
+    L.thumb = ct; L.mthumb = null;
+    if (L.mask) { const mc = document.createElement('canvas'); mc.width = mc.height = 32; mc.className = 'mask'; mc.title = 'Mask: click to paint it'; th.appendChild(mc); L.mthumb = mc;
+      mc.onclick = e => { e.stopPropagation(); m.sel = i; m.target = 'mask'; if (T.show === 'mask') touchAll(m); buildLayers(); }; }
+    ct.onclick = e => { e.stopPropagation(); m.sel = i; m.target = 'content'; if (T.show === 'mask') touchAll(m); buildLayers(); };
+    if (i === m.sel) (tgt === 'mask' && L.mthumb ? L.mthumb : ct).classList.add('tgt');
+    const gname = L.gen ? ' · ' + GENS.find(g => g[0] === L.gen.kind)[1].toLowerCase() : '';
+    nm.firstChild.textContent = L.name;
+    nm.lastChild.textContent = L.kind === 'base' ? 'original' : L.kind === 'adjust' ? 'adjust' + gname : L.kind + ' · ' + blendName(L.blend) + gname;
+    L.thumbDirty = true;
+    r.onclick = () => { m.sel = i; if (T.show === 'mask') touchAll(m); buildLayers(); };
     P.appendChild(r);
   });
   refreshThumbs(); buildProps(); buildPieceRow();
@@ -760,60 +1360,105 @@ const blendName = b => (BLENDS.find(x => x[0] === b) || [, b])[1];
 function refreshThumbs() {
   if (!active) return;
   for (const L of active.layers) if (L.thumb && L.thumbDirty) {
-    const x = L.thumb.getContext('2d'); x.clearRect(0, 0, 34, 34);
-    if (L.kind === 'fill') { x.drawImage(L.canvas, 0, 0, 34, 34); x.globalCompositeOperation = 'source-in'; x.fillStyle = L.color; x.fillRect(0, 0, 34, 34); x.globalCompositeOperation = 'source-over'; }
-    else x.drawImage(L.canvas, 0, 0, 34, 34);
+    const x = L.thumb.getContext('2d'); x.clearRect(0, 0, 32, 32);
+    if (L.kind === 'fill') { x.fillStyle = L.color; x.fillRect(0, 0, 32, 32); }
+    else if (L.kind === 'adjust') { const g = x.createLinearGradient(0, 0, 32, 32); ['#e33', '#ee3', '#3e3', '#3ee', '#33e', '#e3e'].forEach((c, i) => g.addColorStop(i / 5, c)); x.fillStyle = g; x.fillRect(0, 0, 32, 32); }
+    else x.drawImage(L.canvas, 0, 0, 32, 32);
+    if (L.mthumb) { const q = L.mthumb.getContext('2d'); q.fillStyle = '#000'; q.fillRect(0, 0, 32, 32); q.drawImage(L.mask, 0, 0, 32, 32); }
     L.thumbDirty = false;
   }
 }
+let genTimer = 0;
 function buildProps() {
   const P = $('props'); P.innerHTML = '';
-  const L = active.layers[active.sel]; if (!L) return;
-  if (L.kind === 'base') { P.innerHTML = '<p class="note">The original texture. Add a paint or fill layer above it; it is never changed.</p>'; return; }
-  const range = (label, val, min, max, step, on) => {
-    const l = document.createElement('label'); l.className = 'f'; l.innerHTML = `<span></span><input type="range" min="${min}" max="${max}" step="${step}"><output></output>`;
-    l.firstChild.textContent = label; const r = l.children[1], o = l.children[2]; r.value = val; o.textContent = Math.round(val * 100) + '%';
-    r.oninput = () => { on(+r.value); o.textContent = Math.round(r.value * 100) + '%'; }; P.appendChild(l);
+  const m = active, L = m.layers[m.sel]; if (!L) return;
+  if (L.kind === 'base') { P.innerHTML = '<p class="note">The original texture. Paint on a layer above it; it is never changed. The brush makes a paint layer for you.</p>'; return; }
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; P.appendChild(e); return e; };
+  const range = (label, val, min, max, step, fmt, on, done) => {
+    const l = el('label', 'f'); l.innerHTML = `<span></span><input type="range" min="${min}" max="${max}" step="${step}"><output></output>`;
+    l.firstChild.textContent = label; const r = l.children[1], o = l.children[2]; r.value = val; o.textContent = fmt(val);
+    r.oninput = () => { on(+r.value); o.textContent = fmt(+r.value); }; if (done) r.onchange = () => done(+r.value);
   };
-  range('Opacity', L.opacity, 0, 1, 0.01, v => { L.opacity = v; active.dirty = true; });
-  const bl = document.createElement('label'); bl.className = 'f'; bl.innerHTML = '<span>Blend</span><select></select><span></span>';
-  const s = bl.children[1]; BLENDS.forEach(([v, t]) => s.add(new Option(t, v))); s.value = L.blend; s.onchange = () => { L.blend = s.value; active.dirty = true; buildLayers(); };
-  P.appendChild(bl);
-  if (L.kind === 'fill') {
-    const cl = document.createElement('label'); cl.className = 'f'; cl.innerHTML = '<span>Colour</span><input type="color"><span></span>';
-    const c = cl.children[1]; c.value = L.color; c.oninput = () => { L.color = c.value; active.dirty = true; L.thumbDirty = true; refreshThumbs(); };
-    P.appendChild(cl);
-    const n = document.createElement('p'); n.className = 'note'; n.textContent = 'Brush paints this layer\'s mask in, Eraser takes it away.'; P.appendChild(n);
+  const pct = v => Math.round(v * 100) + '%';
+  range('Opacity', L.opacity, 0, 1, 0.01, pct, v => { L.opacity = v; touchAll(m); });
+  if (L.kind !== 'adjust') {
+    const bl = el('label', 'f'); bl.innerHTML = '<span>Blend</span><select></select><span></span>';
+    const s = bl.children[1]; BLENDS.forEach(([v, t]) => s.add(new Option(t, v))); s.value = L.blend; s.onchange = () => { L.blend = s.value; touchAll(m); buildLayers(); };
   }
-  const row = document.createElement('div'); row.className = 'btns'; row.style.marginTop = '6px';
-  const btn = (t, f, title) => { const b = document.createElement('button'); b.className = 'small'; b.textContent = t; b.title = title || ''; b.onclick = f; row.appendChild(b); };
-  btn('Rename', () => { const n = prompt('Layer name', L.name); if (n) { L.name = n.slice(0, 40); buildLayers(); } });
-  btn('Up', () => moveLayer(1)); btn('Down', () => moveLayer(-1));
-  btn('Clear', () => { active.undo.push({ L, data: ctx2(L.canvas).getImageData(0, 0, active.w, active.h) }); ctx2(L.canvas).clearRect(0, 0, active.w, active.h); active.dirty = true; L.thumbDirty = true; refreshThumbs(); }, 'Empty this layer (Ctrl+Z brings it back)');
-  btn('Delete', () => { active.layers.splice(active.sel, 1); active.sel = Math.max(0, active.sel - 1); active.undo = active.undo.filter(u => u.L !== L); active.dirty = true; buildLayers(); markEdited(); });
-  P.appendChild(row);
+  if (L.kind === 'fill') {
+    const cl = el('label', 'f'); cl.innerHTML = '<span>Colour</span><input type="color"><span></span>';
+    const c = cl.children[1]; c.value = L.color; c.oninput = () => { L.color = c.value; touchAll(m); L.thumbDirty = true; refreshThumbs(); };
+  }
+  if (L.kind === 'adjust') {
+    const a = L.adj, set = (k, v) => { a[k] = v; touchAll(m); };
+    range('Hue', a.hue, -180, 180, 1, v => Math.round(v) + '°', v => set('hue', v));
+    range('Saturation', a.sat, 0, 2, 0.01, pct, v => set('sat', v));
+    range('Brightness', a.light, 0, 2, 0.01, pct, v => set('light', v));
+    range('Contrast', a.con, 0, 2, 0.01, pct, v => set('con', v));
+  }
+  const row = () => { const r = el('div', 'btns'); r.style.marginTop = '6px'; return r; };
+  const btn = (r, t, f, title, off) => { const b = document.createElement('button'); b.className = 'small'; b.textContent = t; b.title = title || ''; b.onclick = f; b.disabled = !!off; r.appendChild(b); };
+  const i = m.sel, below = m.layers[i - 1], full = [0, 0, m.w, m.h];
+  let r = row();
+  btn(r, 'Rename', () => { const n = prompt('Layer name', L.name); if (n) act(m, () => { L.name = n.slice(0, 40); }); });
+  btn(r, 'Duplicate', () => act(m, () => { m.layers.splice(i + 1, 0, Object.assign({}, L, { name: L.name + ' copy', canvas: L.canvas && cloneC(L.canvas), mask: L.mask && cloneC(L.mask), adj: L.adj && { ...L.adj }, gen: L.gen && { ...L.gen }, thumb: null, mthumb: null })); m.sel = i + 1; }));
+  btn(r, 'Merge down', () => act(m, () => {
+    fitC(S1, m.w, m.h); const s = ctx2(S1); s.clearRect(0, 0, m.w, m.h);
+    if (L.kind === 'paint') s.drawImage(L.canvas, 0, 0); else { s.fillStyle = L.color; s.fillRect(0, 0, m.w, m.h); }
+    if (L.mask) { s.globalCompositeOperation = 'destination-in'; s.drawImage(L.mask, 0, 0); s.globalCompositeOperation = 'source-over'; }
+    const x = ctx2(below.canvas); x.globalCompositeOperation = L.blend; x.globalAlpha = L.opacity; x.drawImage(S1, 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
+    m.layers.splice(i, 1); m.sel = i - 1; m.target = 'content';
+  }, [[below.canvas, full]]), 'Paint this layer into the paint layer below it', !(below && below.kind === 'paint' && !below.mask && L.kind !== 'adjust'));
+  btn(r, 'Up', () => act(m, () => { [m.layers[i], m.layers[i + 1]] = [m.layers[i + 1], m.layers[i]]; m.sel = i + 1; }), '', i >= m.layers.length - 1);
+  btn(r, 'Down', () => act(m, () => { [m.layers[i], m.layers[i - 1]] = [m.layers[i - 1], m.layers[i]]; m.sel = i - 1; }), '', i <= 1);
+  btn(r, 'Delete', () => act(m, () => { m.layers.splice(i, 1); m.sel = Math.max(0, i - 1); }));
+  if (L.kind === 'paint') {
+    r = row();
+    btn(r, 'Clear paint', () => act(m, () => ctx2(L.canvas).clearRect(0, 0, m.w, m.h), [[L.canvas, full]]), 'Empty this layer (Ctrl+Z brings it back)');
+    if (!L.mask) btn(r, 'Add mask', () => act(m, () => { L.mask = white(m.w, m.h); m.target = 'mask'; }), 'A mask hides parts of this layer without erasing them; smart masks can make it for you');
+    else btn(r, 'Remove mask', () => act(m, () => { L.mask = null; L.gen = null; m.target = 'content'; }));
+  }
+  if (!L.mask) return;
+  el('h3', '', 'Mask');
+  const gl = el('label', 'f'); gl.innerHTML = '<span>Make it</span><select></select><span></span>'; gl.title = 'A smart mask works out where wear, dirt or dust goes from the model and its normal map';
+  const gs = gl.children[1]; GENS.forEach(([v, t]) => gs.add(new Option(t, v))); gs.value = L.gen ? L.gen.kind : '';
+  gs.onchange = () => act(m, () => {
+    L.gen = gs.value ? Object.assign({}, GEN_BASE, L.gen, { kind: gs.value, seed: L.gen ? L.gen.seed : (Math.random() * 1e9) | 0 }) : null;
+    if (L.gen) runGen(m, L);
+  }, [[L.mask, full]]);
+  if (L.gen) {
+    const g = L.gen, later = () => { clearTimeout(genTimer); genTimer = setTimeout(() => runGen(m, L), 120); };
+    const set = k => v => { g[k] = v; later(); };
+    range('Amount', g.amount, 0, 1, 0.01, pct, set('amount'));
+    range('Softness', g.soft, 0, 1, 0.01, pct, set('soft'));
+    if (g.kind === 'edges' || g.kind === 'cavity') range('Width', g.width, 0, 8, 1, v => v + ' px', set('width'));
+    if (g.kind === 'grunge' || g.breakup > 0) range('Scale', g.scale, 1, 30, 0.5, v => v, set('scale'));
+    range('Break up', g.breakup, 0, 1, 0.01, pct, set('breakup'), () => buildProps());
+    const ic = el('label', 'chk'); ic.innerHTML = '<input type="checkbox"><span>Invert</span>'; ic.firstChild.checked = g.invert; ic.firstChild.onchange = e => { g.invert = e.target.checked; runGen(m, L); };
+    r = row(); btn(r, 'New pattern', () => { g.seed = (Math.random() * 1e9) | 0; runGen(m, L); }, 'Another random grunge and break-up');
+    el('p', 'note', 'Painting on this mask works, but changing these settings redraws it.');
+  }
+  r = row();
+  btn(r, 'Invert mask', () => act(m, () => { const x = ctx2(L.mask), d = x.getImageData(0, 0, m.w, m.h); for (let k = 0; k < d.data.length; k += 4) { d.data[k] = d.data[k + 1] = d.data[k + 2] = 255; d.data[k + 3] = 255 - d.data[k + 3]; } x.putImageData(d, 0, 0); }, [[L.mask, full]]));
+  btn(r, 'Show all', () => act(m, () => { const x = ctx2(L.mask); x.fillStyle = '#fff'; x.fillRect(0, 0, m.w, m.h); }, [[L.mask, full]]), 'Fill the mask white');
+  btn(r, 'Hide all', () => act(m, () => ctx2(L.mask).clearRect(0, 0, m.w, m.h), [[L.mask, full]]), 'Clear the mask; then paint where the layer should show');
 }
-function moveLayer(dir) {
-  const i = active.sel, j = i + dir; if (j < 1 || j >= active.layers.length) return;
-  [active.layers[i], active.layers[j]] = [active.layers[j], active.layers[i]]; active.sel = j; active.dirty = true; buildLayers();
-}
-// ID masks: on the Jedi models each clothing piece is a region of the texture; a fill layer can start masked to one
+// ID masks: each marked piece (clothing, armour plate, belt item) is a region of the texture; a fill layer can start masked to one
 function buildPieceRow() {
   const P = $('pieceRow'); P.innerHTML = '';
-  const slot = MODEL.mats.indexOf(active), pieces = (MODEL.meta ? MODEL.meta.pieces : []).map((p, k) => [p, k]).filter(([p]) => p.mat === slot);
+  const slot = MODEL.mats.indexOf(active), pieces = (MODEL.meta ? MODEL.meta.pieces || [] : []).map((p, k) => [p, k]).filter(([p]) => p.mat === slot);
   if (!pieces.length || !active.pieceMap) return;
-  const s = document.createElement('select'); s.setAttribute('aria-label', 'Recolour a clothing piece');
+  const s = document.createElement('select'); s.setAttribute('aria-label', 'Recolour a piece');
   s.add(new Option('Recolour a piece…', '')); pieces.forEach(([p, k]) => s.add(new Option(p.name, k)));
   s.onchange = () => {
     if (s.value === '') return;
-    const k = +s.value, p = MODEL.meta.pieces[k], c = canvas(active.pieceMap.width, active.pieceMap.height), x = ctx2(c), d = active.pieceMap.data;
-    const im = x.createImageData(c.width, c.height); for (let i = 0; i < d.length; i += 4) if (d[i] === k + 1) { im.data[i] = im.data[i + 1] = im.data[i + 2] = 255; im.data[i + 3] = 255; }
-    x.putImageData(im, 0, 0);
-    newLayer(active, 'fill', { mask: c, name: p.name, blend: 'color', color: T.color });
-    flash(`Fill layer for "${p.name}" in Colour mode: it keeps the cloth's shading. Change its colour or blend in the layer settings.`);
+    const k = +s.value, p = MODEL.meta.pieces[k], w = active.pieceMap.width, h = active.pieceMap.height, d = active.pieceMap.data;
+    newLayer(active, 'fill', { mask: maskCanvas(flood(w, h, 0, 0, i => d[i * 4] === k + 1, false), w, h), name: p.name, blend: 'color', color: T.color });
+    flash(`Fill layer for "${p.name}" in Colour mode: it keeps the shading. Change its colour or blend in the layer settings.`);
   };
   P.appendChild(s);
 }
+function setLayout(l) { G.layout = l; G.t2.fit = true; G.pk = null; document.querySelectorAll('#layoutSeg button').forEach(b => b.classList.toggle('on', b.dataset.layout === l)); }
 
 // ---------------------------------------------------------------- models
 async function fetchBin(url) {
@@ -826,7 +1471,7 @@ function vmtLook(v = {}) {
     phongfresnelranges: v.phongfresnelranges || [0, 0.5, 1], phongalbedotint: !!v.phongalbedotint, rimlight: !!v.rimlight, rimlightboost: v.rimlightboost ?? 1,
     rimlightexponent: v.rimlightexponent ?? 4, alphaMode: v.translucent ? 2 : v.alphatest ? 1 : 0 };
 }
-function confirmLeave() { return !MODEL || !MODEL.mats.some(edited) || confirm('Your painting on this model is not exported yet. Switch anyway?'); }
+function confirmLeave() { return !MODEL || !MODEL.mats.some(edited) || confirm('Your painting on this model is not exported or saved yet. Switch anyway?'); }
 // a suite model: the Jedi ones are one mesh file, the clone/fleet ones are shared parts (one per bodygroup choice)
 async function loadSuite(src, name) {
   $('loading').hidden = false;
@@ -855,14 +1500,14 @@ async function loadSuite(src, name) {
     const v = used.has(slot) ? m.vtf || {} : {};   // skin-only materials no part uses: not loaded
     const [base, bump, exp] = await Promise.all([v.base && vtf(root, v.base), v.bump && vtf(root, v.bump), v.exp && vtf(root, v.exp)]);
     const o = makeMat(m.name, base ? toCanvas(base) : null, { meta: m, look: vmtLook(m.vmt) });
-    if (bump) o.bump = SRC.texture(G.gl, bump);
+    if (bump) { o.bump = SRC.texture(G.gl, bump); o.bumpData = bump; }
     if (exp) o.exp = SRC.texture(G.gl, exp);
     if (m.pieces && used.has(slot)) { const pm = await img(root + 'm/' + m.pieces); const c = canvas(o.w, o.h), x = ctx2(c); x.imageSmoothingEnabled = false; x.drawImage(pm, 0, 0, o.w, o.h); o.pieceMap = x.getImageData(0, 0, o.w, o.h); }
     return o;
   }));
   const entry = MODELS.find(x => x.src === src && x.name === name) || {};
   const bg = {}; const hb = meta.bodyparts.findIndex(b => b.name === 'head'); if (name === 'jedi_initiate_alien' && hb >= 0) bg[hb] = 8;
-  setModel({ name, src, label: entry.text || name, meta, mats, draws, bg, mesh: SRC.mesh(G.gl, verts, idx), height: meta.height, center: meta.center });
+  setModel({ name, src, label: entry.text || name, meta, mats, draws, bg, verts, idx, mesh: SRC.mesh(G.gl, verts, idx), height: meta.height, center: meta.center });
 }
 // .obj: positions, UVs, normals, faces (any polygon), usemtl groups -> materials. Y-up turned to Source's Z-up.
 function parseOBJ(text, name) {
@@ -904,14 +1549,16 @@ function parseOBJ(text, name) {
     draws.push({ mat: mats.length, start, count: idx.length - start });
     mats.push(makeMat(g, null, { look: vmtLook({ phong: true, phongboost: 0.6, phongexponent: 12 }) }));
   }
-  let lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
-  for (let i = 0; i < verts.length; i += 8) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], verts[i + k]); hi[k] = Math.max(hi[k], verts[i + k]); }
   const vv = new Float32Array(verts), ii = new Uint32Array(idx);
-  return { name, label: name, mats, draws, mesh: SRC.mesh(G.gl, vv, ii), height: Math.max(hi[2] - lo[2], hi[0] - lo[0], hi[1] - lo[1]), center: lo.map((v, k) => (v + hi[k]) / 2), bg: {} };
+  return { name, label: name, mats, draws, verts: vv, idx: ii, mesh: SRC.mesh(G.gl, vv, ii), bg: {} };
 }
 function setModel(m) {
-  if (MODEL) { G.gl.deleteBuffer(MODEL.mesh.vb); G.gl.deleteBuffer(MODEL.mesh.ib); for (const x of MODEL.mats) { if (x.tex) G.gl.deleteTexture(x.tex); if (x.bump) G.gl.deleteTexture(x.bump); if (x.exp) G.gl.deleteTexture(x.exp); } }
-  MODEL = m; G.dist = m.height * 1.6; G.pan = [0, 0, 0]; G.yaw = 0.35; G.pitch = 0.12;
+  if (MODEL) { const gl = G.gl; gl.deleteBuffer(MODEL.mesh.vb); gl.deleteBuffer(MODEL.mesh.ib); if (MODEL.wire) gl.deleteBuffer(MODEL.wire.ib); for (const x of MODEL.mats) { if (x.tex) gl.deleteTexture(x.tex); if (x.bump) gl.deleteTexture(x.bump); if (x.exp) gl.deleteTexture(x.exp); } }
+  const lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
+  for (let i = 0; i < m.verts.length; i += 8) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], m.verts[i + k]); hi[k] = Math.max(hi[k], m.verts[i + k]); }
+  m.lo = lo; m.hi = hi;
+  if (!m.height) { m.height = Math.max(hi[2] - lo[2], hi[0] - lo[0], hi[1] - lo[1]); m.center = lo.map((v, k) => (v + hi[k]) / 2); }
+  MODEL = m; G.ver++; G.pk = null; G.dist = m.height * 1.6; G.pan = [0, 0, 0]; G.yaw = 0.35; G.pitch = 0.12; G.lastPt = null;
   $('loading').hidden = true;
   buildBodygroups(); buildMats();
   const first = shownDraws().map(d => m.mats[d.mat]).find(x => x.meta ? x.meta.kind === 'outfit' : true) || m.mats[shownDraws()[0].mat];
@@ -930,10 +1577,38 @@ function buildBodygroups() {
   });
 }
 
+// ---------------------------------------------------------------- projects (every layer, to carry on later)
+async function saveProject() {
+  if (!MODEL || !MODEL.src) { flash('Projects are for the suite models; for your own model export PNG.'); return; }
+  const mats = {};
+  for (const m of MODEL.mats) if (edited(m)) mats[m.name] = { base: m.replaced ? m.layers[0].canvas.toDataURL() : null, sel: m.sel,
+    layers: m.layers.slice(1).map(L => ({ kind: L.kind, name: L.name, opacity: L.opacity, blend: L.blend, visible: L.visible, color: L.color, adj: L.adj, gen: L.gen,
+      canvas: L.kind === 'paint' ? L.canvas.toDataURL() : null, mask: L.mask ? L.mask.toDataURL() : null })) };
+  if (!Object.keys(mats).length) { flash('Nothing painted yet.'); return; }
+  download(new Blob([JSON.stringify({ app: 'pac3-texture-painter', version: 1, model: MODEL.src + ':' + MODEL.name, bg: MODEL.bg, mats })], { type: 'application/json' }), MODEL.name + '.paint.json');
+  flash('Saved ' + MODEL.name + '.paint.json. Open it here later to carry on.');
+}
+async function openProject(f) {
+  const j = JSON.parse(await f.text());
+  if (j.app !== 'pac3-texture-painter' || !j.model) throw new Error('that is not a Texture Painter project');
+  if (!confirmLeave()) return;
+  const [src, name] = j.model.split(':');
+  await loadSuite(src, name); $('modelPick').value = j.model;
+  MODEL.bg = j.bg || {}; buildBodygroups(); buildMats();
+  const pic = async (m, url) => { const c = canvas(m.w, m.h); if (url) ctx2(c).drawImage(await img(url), 0, 0, m.w, m.h); return c; };
+  for (const [mn, d] of Object.entries(j.mats || {})) {
+    const m = MODEL.mats.find(x => x.name === mn); if (!m) continue;
+    if (d.base) { const x = ctx2(m.layers[0].canvas); x.clearRect(0, 0, m.w, m.h); x.drawImage(await img(d.base), 0, 0, m.w, m.h); m.replaced = true; }
+    for (const l of d.layers) m.layers.push({ kind: l.kind, name: l.name, opacity: l.opacity, blend: l.blend, visible: l.visible, color: l.color, adj: l.adj, gen: l.gen,
+      canvas: l.kind === 'paint' ? await pic(m, l.canvas) : null, mask: l.mask ? await pic(m, l.mask) : null, thumbDirty: true });
+    m.sel = clamp(d.sel || 0, 0, m.layers.length - 1); m.target = targetOf(m); touchAll(m);
+  }
+  selectMat(MODEL.mats.find(m => edited(m) && m.layers.length > 1) || active); markEdited(); flash('Opened ' + f.name + '.');
+}
+
 // ---------------------------------------------------------------- export
 function download(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); }
 const fileBase = () => (MODEL.name + '_' + active.name).replace(/[^a-z0-9_-]+/gi, '_').toLowerCase();
-function compOf(m) { if (m.dirty) composite(m); return m.comp; }
 // a VTF with mipmaps: DXT1 when opaque, RGBA8888 when it has see-through parts (alpha kept exactly)
 function vtfOf(c, square) {
   let w = c.width, h = c.height;
@@ -983,8 +1658,8 @@ function matPart(m, url) {   // rebuilds the game material from its .vmt setting
   for (const k of ['color2', 'phongfresnelranges', 'phongtint']) if (v[k]) p[k] = vec(v[k]);
   return part('material_3d', 'painted ' + meta.name, p);
 }
-$('btnPng').onclick = () => { if (!active) return; compOf(active).toBlob(b => download(b, fileBase() + '.png')); flash('Saved ' + fileBase() + '.png'); };
-$('btnVtf').onclick = () => { if (!active) return; download(vtfOf(compOf(active), false), fileBase() + '.vtf'); flash('Saved ' + fileBase() + '.vtf'); };
+$('btnPng').onclick = () => { if (!active) return; finalOf(active).toBlob(b => download(b, fileBase() + '.png')); flash('Saved ' + fileBase() + '.png'); };
+$('btnVtf').onclick = () => { if (!active) return; download(vtfOf(finalOf(active), false), fileBase() + '.vtf'); flash('Saved ' + fileBase() + '.vtf'); };
 $('btnPac').onclick = async e => {
   const btn = e.currentTarget;
   if (!MODEL || !MODEL.meta) { flash('PAC outfits are for the suite models (they need the game\'s own material names). For your own model, export PNG or VTF.'); return; }
@@ -993,7 +1668,7 @@ $('btnPac').onclick = async e => {
   btn.disabled = true;
   try {
     const parts = [];
-    for (const [i, m] of todo.entries()) { flash(`Uploading ${m.name} (${i + 1}/${todo.length})…`); parts.push(matPart(m, await upload(vtfOf(compOf(m), true)))); }
+    for (const [i, m] of todo.entries()) { flash(`Uploading ${m.name} (${i + 1}/${todo.length})…`); parts.push(matPart(m, await upload(vtfOf(finalOf(m), true)))); }
     const mods = MODEL.meta.bodyparts.map((b, i) => b.choices.length > 1 ? `${b.name}=${MODEL.bg[i] || 0};` : '').join('');
     const outfit = part('group', 'painted ' + MODEL.name, { OwnerName: 'self' }, [part('entity2', MODEL.name, mods ? { ModelModifiers: mods } : {}, parts)]);
     const text = `[1] = ${lua(outfit, 0)},\n`, out = $('copyOut');
@@ -1005,24 +1680,40 @@ $('btnPac').onclick = async e => {
 
 // ---------------------------------------------------------------- start
 function loop() {
-  try { draw(); if (active && (active.upload || stroke || !drawUV.t || performance.now() - drawUV.t > 250)) { drawUV(); drawUV.t = performance.now(); } refreshThumbs(); }
+  try { draw(); refreshThumbs(); }
   catch (err) { console.error(err); }
   requestAnimationFrame(loop);
 }
 (async () => {
   try {
-    initGL(); initView(); initUV();
-    document.querySelectorAll('[data-tool]').forEach(b => b.onclick = () => setTool(b.dataset.tool)); setTool('brush');
-    const bind = (id, k, f, show) => { const r = $(id), o = $(id + 'Out'); const set = () => { T[k] = f(+r.value); if (o) o.textContent = show(+r.value); }; r.oninput = set; set(); };
-    bind('size', 'size', v => v, v => v); bind('hard', 'hard', v => v / 100, v => v + '%'); bind('flow', 'flow', v => v / 100, v => v + '%');
+    initGL(); initView();
+    const tb = $('tools');
+    for (const [t, label, key] of TOOLS) { const b = document.createElement('button'); b.dataset.tool = t; b.title = label + ' (' + key + ')'; b.innerHTML = '<span></span><kbd></kbd>'; b.firstChild.textContent = label; b.lastChild.textContent = key; b.onclick = () => setTool(t); tb.appendChild(b); }
+    buildSettings(); buildSwatches(); buildBrushes(); setTool('brush'); syncSettings(); setLayout('split');
     $('color').oninput = e => { T.color = e.target.value; };
-    $('mirror').onchange = e => { T.mirror = e.target.checked; };
+    document.querySelectorAll('#layoutSeg button').forEach(b => b.onclick = () => setLayout(b.dataset.layout));
+    $('show').onchange = e => { T.show = e.target.value; touchAll(active); };
+    $('btnAlpha').onclick = () => $('fileAlpha').click();
+    $('fileAlpha').onchange = async e => {
+      const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+      try {
+        const im = await createImageBitmap(f), c = canvas(AS, AS), x = ctx2(c), s = Math.min(AS / im.width, AS / im.height);
+        x.drawImage(im, (AS - im.width * s) / 2, (AS - im.height * s) / 2, im.width * s, im.height * s);
+        const d = x.getImageData(0, 0, AS, AS); for (let i = 0; i < d.data.length; i += 4) { const l = (d.data[i] * 0.3 + d.data[i + 1] * 0.59 + d.data[i + 2] * 0.11) * d.data[i + 3] / 255; d.data[i] = d.data[i + 1] = d.data[i + 2] = 255; d.data[i + 3] = l; }
+        x.putImageData(d, 0, 0);
+        const k = 'custom' + Object.keys(ALPHAS).length; ALPHAS[k] = { name: f.name, canvas: c }; T.alpha = k; T.preset = '';
+        buildAlphas(); markBrush(); refreshSettingsVis(); flash(`${f.name} is now the brush shape.`);
+      } catch (err) { flash('Could not read that image: ' + err.message); }
+    };
     $('btnImport').onclick = () => $('fileObj').click();
     $('fileObj').onchange = async e => {
       const f = e.target.files[0]; e.target.value = ''; if (!f || !confirmLeave()) return;
       try { setModel(parseOBJ(await f.text(), f.name.replace(/\.obj$/i, ''))); $('modelPick').value = ''; flash(`Imported ${f.name}. Load an image onto each material, or paint from grey.`); }
       catch (err) { flash('Could not read that model: ' + err.message); }
     };
+    $('btnSave').onclick = saveProject;
+    $('btnOpen').onclick = () => $('fileProj').click();
+    $('fileProj').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; try { await openProject(f); } catch (err) { $('loading').hidden = true; flash('Could not open that project: ' + err.message); } };
     $('btnLoadImg').onclick = () => active && $('fileImg').click();
     $('fileImg').onchange = async e => {
       const f = e.target.files[0]; e.target.value = ''; if (!f || !active) return;
@@ -1030,13 +1721,14 @@ function loop() {
         let src;
         if (/\.vtf$/i.test(f.name)) { const id = SRC.decodeVTF(await f.arrayBuffer()), c = canvas(id.width, id.height); ctx2(c).putImageData(id, 0, 0); src = c; }
         else src = await createImageBitmap(f);
-        const b = active.layers[0].canvas, x = ctx2(b); x.clearRect(0, 0, b.width, b.height); x.drawImage(src, 0, 0, b.width, b.height);
-        active.replaced = true; active.hasAlpha = alphaOf(b); active.dirty = true; active.layers[0].thumbDirty = true; buildLayers(); markEdited();
-        flash(`${f.name} is now the base of ${active.name}.`);
+        const m = active, b = m.layers[0].canvas;
+        act(m, () => { const x = ctx2(b); x.clearRect(0, 0, b.width, b.height); x.drawImage(src, 0, 0, b.width, b.height); m.replaced = true; m.hasAlpha = alphaOf(b); }, [[b, [0, 0, b.width, b.height]]]);
+        flash(`${f.name} is now the base of ${m.name}.`);
       } catch (err) { flash('Could not read that image: ' + err.message); }
     };
     $('addPaint').onclick = () => active && newLayer(active, 'paint');
     $('addFill').onclick = () => active && newLayer(active, 'fill');
+    $('addAdjust').onclick = () => active && newLayer(active, 'adjust');
     // every model: the Jedi (on this site) and the clones, fleet and generals (asset repo), grouped by family
     const jedi = await fetch(JEDI + 'models.json').then(r => r.json());
     let clones = [];
@@ -1062,11 +1754,11 @@ function loop() {
     pick.value = 'jedi:jedi_initiate_alien';
     requestAnimationFrame(loop);
     await loadSuite('jedi', 'jedi_initiate_alien');
-    flash('Pick a material and paint on the model. "Recolour a piece" makes a fill layer for one clothing piece.');
-  } catch (err) { flash('Could not start the painter: ' + err.message); }
+    flash('Paint on the model or the texture. Fill (G) recolours areas; + Fill with a smart mask adds wear and dirt.');
+  } catch (err) { flash('Could not start the painter: ' + err.message); console.error(err); }
 })();
 addEventListener('beforeunload', e => { if (MODEL && MODEL.mats.some(edited)) { e.preventDefault(); e.returnValue = ''; } });
-window.__painter = { T, G, model: () => MODEL, active: () => active, pickAt, newLayer, composite };
+window.__painter = { T, G, model: () => MODEL, active: () => active, pickAt, newLayer, composite, bake, genMask, bucketAt, undo, redo, setLayout, applyPreset, beginStroke, strokeTo, endStroke, runGen };
 </script>
 </body>
 </html>

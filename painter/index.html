@@ -1,0 +1,1021 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PAC 3 Suite · Texture Painter</title>
+<style>
+  :root { --bg: #0c0f15; --panel: #141922; --line: #222a37; --text: #dfe5ee; --muted: #8592a5; --accent: #4e94e6; --accent2: #274a73; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 14px/1.45 "Segoe UI", system-ui, sans-serif; }
+  header { display: flex; align-items: center; gap: 14px; padding: 12px 20px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  header h1 { margin: 0; font-size: 18px; }
+  header .sub { color: var(--muted); font-size: 13px; }
+  .suitenav { display: flex; gap: 4px; padding: 3px; background: #10141c; border: 1px solid #222a37; border-radius: 9px; }
+  .suitenav a { padding: 5px 11px; border-radius: 7px; color: #8592a5; text-decoration: none; font-size: 13px; font-weight: 600; white-space: nowrap; }
+  .suitenav a:hover { color: #dfe5ee; background: #1a2130; }
+  .suitenav a.on { background: #274a73; color: #fff; }
+  .app { display: grid; grid-template-columns: 250px minmax(0, 1fr) 320px; gap: 14px; padding: 14px; height: calc(100vh - 58px); min-height: 560px; }
+  .col { display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow: auto; }
+  .view { position: relative; background: #0b0e14; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; min-height: 0; }
+  .view canvas { width: 100%; height: 100%; display: block; touch-action: none; }
+  .hint { position: absolute; left: 12px; bottom: 10px; color: var(--muted); font-size: 12px; pointer-events: none; }
+  .viewtools { position: absolute; right: 10px; top: 10px; display: flex; gap: 6px; }
+  .loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); pointer-events: none; }
+  .loading[hidden], .card[hidden] { display: none; }
+  #cursor { position: absolute; border: 1.5px solid rgba(255,255,255,.8); border-radius: 50%; pointer-events: none; box-shadow: 0 0 0 1px rgba(0,0,0,.6); display: none; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
+  .card h2 { margin: 0 0 8px; font-size: 13px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .6px; display: flex; align-items: center; gap: 8px; }
+  .card h2 .grow { flex: 1; }
+  label.f { display: grid; grid-template-columns: 74px minmax(0, 1fr) 38px; gap: 8px; align-items: center; color: var(--muted); font-size: 13px; margin: 6px 0; }
+  label.f output { text-align: right; color: var(--text); font-size: 12px; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  input[type=color] { width: 40px; height: 28px; padding: 0; border: 1px solid var(--line); border-radius: 7px; background: none; cursor: pointer; }
+  select { font: inherit; color: var(--text); background: #1c2433; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; width: 100%; min-width: 0; }
+  button { font: inherit; color: var(--text); background: #1c2433; border: 1px solid var(--line); border-radius: 9px; padding: 7px 11px; cursor: pointer; }
+  button:hover { background: #243048; }
+  button.on, button.primary { background: var(--accent2); border-color: var(--accent); }
+  button.small { padding: 3px 8px; font-size: 12px; border-radius: 7px; }
+  button:disabled { opacity: .5; cursor: default; }
+  .tools { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .tools button { padding: 7px 4px; font-size: 12.5px; }
+  .btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  .mats { display: flex; flex-direction: column; gap: 3px; max-height: 260px; overflow: auto; }
+  .mats button { text-align: left; padding: 5px 9px; font-size: 13px; display: flex; gap: 8px; align-items: center; }
+  .mats button .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none; visibility: hidden; }
+  .mats button.edited .dot { visibility: visible; }
+  .layers { display: flex; flex-direction: column; gap: 4px; }
+  .layer { display: grid; grid-template-columns: 22px 34px minmax(0, 1fr) auto; gap: 7px; align-items: center; padding: 5px 7px; border: 1px solid var(--line); border-radius: 9px; cursor: pointer; background: #10151d; }
+  .layer.on { border-color: var(--accent); background: #1a2537; }
+  .layer canvas { width: 34px; height: 34px; border-radius: 5px; background: #333 repeating-conic-gradient(#555 0 25%, #333 0 50%) 0 0 / 10px 10px; display: block; }
+  .layer .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+  .layer .kind { color: var(--muted); font-size: 11px; display: block; }
+  .layer input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
+  .props { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 6px; }
+  #uv { width: 100%; aspect-ratio: 1; background: #0b0e14; border: 1px solid var(--line); border-radius: 10px; display: block; touch-action: none; cursor: crosshair; image-rendering: auto; }
+  #msg { color: var(--muted); font-size: 13px; min-height: 18px; }
+  .note { color: var(--muted); font-size: 12.5px; margin: 6px 0 0; }
+  textarea#copyOut { width: 100%; min-height: 60px; margin-top: 8px; font: 12px/1.35 Consolas, monospace; color: var(--text); background: #0b0e14; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+  @media (max-width: 1100px) { .app { grid-template-columns: 1fr; height: auto; } .view { height: 62vh; } .col { overflow: visible; } }
+</style>
+</head>
+<body>
+<header><h1>PAC 3 Suite</h1><nav class="suitenav" aria-label="PAC 3 Suite tools"><a href="../">Visor Editor</a><a href="../jedi/">Jedi Editor</a><a href="./" class="on" aria-current="page">Texture Painter</a></nav><span class="sub" id="sub"></span></header>
+<div class="app">
+  <div class="col">
+    <div class="card"><h2>Model</h2>
+      <select id="modelPick" aria-label="Model"></select>
+      <div id="bodygroups"></div>
+      <div class="btns" style="margin-top:8px"><button id="btnImport" title="An .obj model (with its UVs). Add its textures afterwards with Load image.">Import .obj…</button></div>
+      <input type="file" id="fileObj" accept=".obj" hidden><input type="file" id="fileImg" accept="image/*,.vtf" hidden>
+    </div>
+    <div class="card"><h2>Materials</h2><div class="mats" id="mats"></div>
+      <div class="btns" style="margin-top:8px"><button class="small" id="btnLoadImg" title="Replace this material's base texture with an image or .vtf">Load image…</button></div></div>
+    <div class="card"><h2>Brush</h2>
+      <div class="tools" role="toolbar" aria-label="Tools">
+        <button data-tool="brush" title="Paint (B)">Brush</button><button data-tool="erase" title="Erase (E)">Eraser</button>
+        <button data-tool="pick" title="Pick a colour from the texture (I)">Picker</button><button data-tool="orbit" title="Only orbit the camera (Space)">Orbit</button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="color" id="color" value="#4e94e6" aria-label="Brush colour"><span class="note" style="margin:0">colour · [ ] size · Ctrl+Z undo</span></div>
+      <label class="f">Size <input type="range" id="size" min="1" max="200" value="24"><output id="sizeOut"></output></label>
+      <label class="f">Hardness <input type="range" id="hard" min="0" max="100" value="60"><output id="hardOut"></output></label>
+      <label class="f">Flow <input type="range" id="flow" min="1" max="100" value="80"><output id="flowOut"></output></label>
+      <label class="f" title="Paint the mirrored side too (left/right of the model)">Mirror <input type="checkbox" id="mirror" style="justify-self:start"><span></span></label>
+    </div>
+  </div>
+  <div class="view" id="view"><canvas id="gl"></canvas><div id="cursor"></div><div class="loading" id="loading">Loading…</div>
+    <div class="viewtools"><select id="rig" aria-label="Lighting"><option value="day">Lit area</option><option value="night">Dark area</option><option value="flat">Flat (no lighting)</option></select></div>
+    <div class="hint">left drag paints · right drag or Space spins · wheel zooms · middle drag pans</div></div>
+  <div class="col">
+    <div class="card"><h2><span class="grow">Layers</span><button class="small" id="addPaint" title="A transparent layer to paint on">+ Paint</button><button class="small" id="addFill" title="A solid colour layer; paint or erase its mask">+ Fill</button></h2>
+      <div class="btns" id="pieceRow" style="margin-bottom:8px"></div>
+      <div class="layers" id="layers"></div>
+      <div class="props" id="props"></div>
+    </div>
+    <div class="card"><h2>Texture</h2><canvas id="uv" width="512" height="512" aria-label="The texture: paint here too"></canvas></div>
+    <div class="card"><h2>Export</h2>
+      <div class="btns"><button id="btnPng">PNG</button><button id="btnVtf" title="DXT1 (DXT5-free RGBA when the texture has see-through parts), with mipmaps">VTF</button><button class="primary" id="btnPac" title="Uploads the painted textures and copies a PAC outfit that puts them on this model">Copy PAC outfit</button></div>
+      <textarea id="copyOut" readonly hidden></textarea>
+      <div id="msg"></div>
+      <p class="note">PAC outfit: in PAC right-click an empty spot in the part list → load → load from clipboard → Ctrl+V, then Wear on the same model. Textures are uploaded square (max 1024). Server rules still apply, and changes need staff approval.</p>
+    </div>
+  </div>
+</div>
+<script>
+const JEDI = '../jedi/';
+const UPLOAD_URL = 'https://visor-upload.yeezybeezydeezy.workers.dev/upload';
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const hex2rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const rgb2hex = c => '#' + c.map(v => clamp(Math.round(v), 0, 255).toString(16).padStart(2, '0')).join('');
+const $ = id => document.getElementById(id);
+const flash = m => { $('msg').textContent = m; };
+const nice = s => s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+// ---------------------------------------------------------------- Source-style model shading (shared by the PAC 3 Suite tools)
+// A WebGL1 version of Source's VertexLitGeneric (the shader player models use), following its pixel shader: lighting
+// in linear space from an ambient cube plus directional lights, $halflambert (wrapped and squared), $bumpmap in tangent
+// space with the phong mask in its alpha, $phong with $phongexponent / $phongboost / $phongfresnelranges /
+// $phongalbedotint, $rimlight, $selfillum with a mask, $color2, and $detail blend modes 1 (added before lighting) and 5
+// (added after lighting). Models are Z-up. Exposes SRC.
+const SRC = (() => {
+  const VS = `attribute vec3 aP; attribute vec3 aN; attribute vec2 aUV; attribute vec4 aT;
+uniform mat4 uMVP;
+varying vec3 vPos, vN; varying vec4 vT; varying vec2 vUV;
+void main() { vPos = aP; vN = aN; vT = aT; vUV = aUV; gl_Position = uMVP * vec4(aP, 1.0); }`;
+  const FS = `precision highp float;
+varying vec3 vPos, vN; varying vec4 vT; varying vec2 vUV;
+uniform sampler2D uBase, uBump, uSelf, uDet, uExtra;
+uniform vec3 uEye, uAmb[6], uLDir[2], uLCol[2];
+uniform vec3 uColor2, uFresnel, uSelfTint;
+uniform float uHalfLambert, uHasBump, uPhong, uPhongBoost, uPhongExp, uAlbedoTint, uRim, uRimBoost, uRimExp, uSelfIllum;
+uniform float uMaskNoBump, uDetMode, uDetFactor, uExtraMode, uExtraAmt, uAlphaMode;
+uniform vec4 uDetRect, uExtraCol;
+vec3 ambient(vec3 n) { vec3 s = n * n;   // Source's ambient cube: six colours blended by the squared normal
+  return s.x * (n.x > 0.0 ? uAmb[0] : uAmb[1]) + s.y * (n.y > 0.0 ? uAmb[2] : uAmb[3]) + s.z * (n.z > 0.0 ? uAmb[4] : uAmb[5]); }
+float fresnelRanges(vec3 n, vec3 v) { float f = 1.0 - clamp(dot(n, v), 0.0, 1.0); f *= f;
+  return f > 0.5 ? mix(uFresnel.y, uFresnel.z, 2.0 * f - 1.0) : mix(uFresnel.x, uFresnel.y, 2.0 * f); }
+vec3 lin(vec3 c) { return pow(max(c, 0.0), vec3(2.2)); }
+void main() {
+  vec4 base = texture2D(uBase, vUV);
+  if (uAlphaMode > 0.5 && uAlphaMode < 1.5 && base.a < 0.5) discard;   // $alphatest
+  vec3 alb = lin(base.rgb) * uColor2;
+  if (uExtraMode > 0.5) {   // tool overlay (e.g. a highlighted clothing piece)
+    float m = texture2D(uExtra, vUV).r * 255.0;
+    if (abs(m - uExtraCol.a) < 0.5) alb = mix(alb, lin(uExtraCol.rgb), uExtraAmt);
+  }
+  vec2 dc = (vUV - uDetRect.xy) / uDetRect.zw;
+  bool inDet = uDetMode > 0.5 && dc.x >= 0.0 && dc.x <= 1.0 && dc.y >= 0.0 && dc.y <= 1.0;
+  vec3 det = inDet ? lin(texture2D(uDet, dc).rgb) * uDetFactor : vec3(0.0);
+  if (uDetMode > 0.5 && uDetMode < 1.5) alb += det;   // mode 1: added to the paint, then lit
+  vec3 n = normalize(vN); if (!gl_FrontFacing) n = -n;
+  float mask = uMaskNoBump;
+  if (uHasBump > 0.5) {   // tangent-space normal map; its alpha is the phong mask
+    vec4 nm = texture2D(uBump, vUV);
+    vec3 t = normalize(vT.xyz - n * dot(n, vT.xyz)), b = cross(n, t) * vT.w, tn = nm.xyz * 2.0 - 1.0;
+    n = normalize(t * tn.x + b * tn.y + n * tn.z); mask = nm.a;
+  }
+  vec3 v = normalize(uEye - vPos), r = 2.0 * n * dot(n, v) - v;
+  vec3 diff = ambient(n), spec = vec3(0.0), rim = vec3(0.0);
+  for (int i = 0; i < 2; i++) {
+    float nl = dot(n, uLDir[i]);
+    diff += uLCol[i] * (uHalfLambert > 0.5 ? pow(clamp(nl * 0.5 + 0.5, 0.0, 1.0), 2.0) : clamp(nl, 0.0, 1.0));
+    float lr = clamp(dot(r, uLDir[i]), 0.0, 1.0), m = clamp(nl, 0.0, 1.0);
+    spec += uLCol[i] * pow(lr, uPhongExp) * m; rim += uLCol[i] * pow(lr, uRimExp) * m;
+  }
+  if (uSelfIllum > 0.5) diff = mix(diff, uSelfTint, texture2D(uSelf, vUV).r);   // self-illum: lit as if by its tint
+  vec3 col = alb * diff;
+  if (uPhong > 0.5) {
+    spec *= mask * uPhongBoost * fresnelRanges(n, v) * mix(vec3(1.0), alb, uAlbedoTint);
+    if (uRim > 0.5) {
+      float rf = pow(1.0 - clamp(dot(n, v), 0.0, 1.0), 4.0);
+      spec = max(spec, rim * rf * uRimBoost);
+      spec += rf * uRimBoost * ambient(v) * clamp(n.z, 0.0, 1.0);
+    }
+    col += spec;
+  }
+  if (uDetMode > 4.5) col += det;   // mode 5: added after lighting (glows)
+  col = col / (1.0 + max(max(col.r, col.g), col.b) * 0.12);   // soft highlight roll-off instead of a hard clip
+  gl_FragColor = vec4(pow(clamp(col, 0.0, 1.0), vec3(1.0 / 2.2)), uAlphaMode > 1.5 ? base.a : 1.0);   // $translucent
+}`;
+
+  // lighting rigs: ambient cube (+x -x +y -y +z -z, linear) and two directional lights given relative to the camera
+  // (key from the upper right of the view, fill from the lower left), like the model viewer
+  const RIGS = {
+    day: { amb: [[0.16, 0.17, 0.19], [0.16, 0.17, 0.19], [0.17, 0.18, 0.2], [0.15, 0.16, 0.18], [0.3, 0.33, 0.4], [0.09, 0.08, 0.07]],
+      key: [[0.45, 0.55, 0.75], [1.35, 1.27, 1.12]], fill: [[-0.6, -0.2, 0.3], [0.16, 0.18, 0.24]] },
+    night: { amb: [[0.012, 0.014, 0.02], [0.012, 0.014, 0.02], [0.012, 0.014, 0.02], [0.012, 0.014, 0.02], [0.025, 0.03, 0.045], [0.004, 0.004, 0.005]],
+      key: [[0.45, 0.55, 0.75], [0.05, 0.055, 0.07]], fill: [[-0.6, -0.2, 0.3], [0.01, 0.012, 0.02]] },
+  };
+
+  // materials take Source's own names and defaults (VertexLitGeneric)
+  const DEFAULT = { color2: [1, 1, 1], halflambert: true, phong: false, phongboost: 1, phongexponent: 5, phongfresnelranges: [0, 0.5, 1],
+    phongalbedotint: false, rimlight: false, rimlightboost: 1, rimlightexponent: 4, selfillum: false, selfillumtint: [1, 1, 1],
+    detailblendmode: 0, detailblendfactor: 1, detailrect: [0, 0, 1, 1], maskNoBump: 1, alphaMode: 0 };
+
+  function program(gl) {
+    const sh = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; };
+    const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    const cache = {}, U = n => n in cache ? cache[n] : (cache[n] = gl.getUniformLocation(p, n));
+    const R = { gl, prog: p, U, blank: null };
+    gl.useProgram(p);
+    ['uBase', 'uBump', 'uSelf', 'uDet', 'uExtra'].forEach((n, i) => gl.uniform1i(U(n), i));
+    R.blank = texture(gl, new ImageData(new Uint8ClampedArray([128, 128, 255, 255]), 1, 1), {});   // flat normal, also a harmless filler
+    return R;
+  }
+
+  // per-vertex tangents (Lengyel), +handedness in w; the bitangent follows +v (image down), which is how Source's
+  // normal maps store green
+  function tangents(P, UV, idx) {
+    const nv = P.length / 3, t = new Float32Array(nv * 3), b = new Float32Array(nv * 3), out = new Float32Array(nv * 4);
+    for (let k = 0; k < idx.length; k += 3) {
+      const a = idx[k], c = idx[k + 1], d = idx[k + 2];
+      const e1 = [0, 1, 2].map(j => P[c * 3 + j] - P[a * 3 + j]), e2 = [0, 1, 2].map(j => P[d * 3 + j] - P[a * 3 + j]);
+      const du1 = UV[c * 2] - UV[a * 2], dv1 = UV[c * 2 + 1] - UV[a * 2 + 1], du2 = UV[d * 2] - UV[a * 2], dv2 = UV[d * 2 + 1] - UV[a * 2 + 1];
+      const det = du1 * dv2 - du2 * dv1; if (Math.abs(det) < 1e-12) continue;
+      const r = 1 / det;
+      for (const i of [a, c, d]) for (let j = 0; j < 3; j++) { t[i * 3 + j] += (e1[j] * dv2 - e2[j] * dv1) * r; b[i * 3 + j] += (e2[j] * du1 - e1[j] * du2) * r; }
+    }
+    return { t, b, out };
+  }
+
+  // a mesh from interleaved [P3 N3 UV2] floats and an index array: adds tangents, uploads, ready to draw
+  function mesh(gl, interleaved, idx) {
+    const nv = interleaved.length / 8, P = new Float32Array(nv * 3), N = new Float32Array(nv * 3), UV = new Float32Array(nv * 2);
+    for (let i = 0; i < nv; i++) { for (let j = 0; j < 3; j++) { P[i * 3 + j] = interleaved[i * 8 + j]; N[i * 3 + j] = interleaved[i * 8 + 3 + j]; } UV[i * 2] = interleaved[i * 8 + 6]; UV[i * 2 + 1] = interleaved[i * 8 + 7]; }
+    const { t, b } = tangents(P, UV, idx), buf = new Float32Array(nv * 12);
+    for (let i = 0; i < nv; i++) {
+      const n = [N[i * 3], N[i * 3 + 1], N[i * 3 + 2]], tt = [t[i * 3], t[i * 3 + 1], t[i * 3 + 2]];
+      const d = n[0] * tt[0] + n[1] * tt[1] + n[2] * tt[2]; let o = [tt[0] - n[0] * d, tt[1] - n[1] * d, tt[2] - n[2] * d];
+      const l = Math.hypot(...o) || 1; o = o.map(x => x / l);
+      const cr = [n[1] * o[2] - n[2] * o[1], n[2] * o[0] - n[0] * o[2], n[0] * o[1] - n[1] * o[0]];
+      const w = cr[0] * b[i * 3] + cr[1] * b[i * 3 + 1] + cr[2] * b[i * 3 + 2] < 0 ? -1 : 1;
+      buf.set(interleaved.subarray(i * 8, i * 8 + 8), i * 12); buf.set([o[0], o[1], o[2], w], i * 12 + 8);
+    }
+    const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, buf, gl.STATIC_DRAW);
+    const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW);
+    return { vb, ib, count: idx.length, type: idx instanceof Uint32Array ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT, bytes: idx instanceof Uint32Array ? 4 : 2 };
+  }
+
+  function texture(gl, source, { mips = true, nearest = false, wrap = true } = {}) {
+    const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+    upload(gl, t, source, mips);
+    const W = wrap ? gl.REPEAT : gl.CLAMP_TO_EDGE;
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, W); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, W);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, nearest ? gl.NEAREST : gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, nearest ? gl.NEAREST : mips ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR);
+    return t;
+  }
+  function upload(gl, t, source, mips = true) {
+    gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+    if (mips) gl.generateMipmap(gl.TEXTURE_2D);
+  }
+
+  // per frame: camera, lights (camera-relative), ambient cube
+  function frame(R, mvp, eye, view, rig) {
+    const { gl, U } = R, g = RIGS[rig] || rig;
+    gl.useProgram(R.prog);
+    gl.uniformMatrix4fv(U('uMVP'), false, mvp); gl.uniform3fv(U('uEye'), eye);
+    gl.uniform3fv(U('uAmb[0]'), g.amb.flat());
+    // camera axes from the view matrix (column-major lookAt: rows are right, up, back)
+    const right = [view[0], view[4], view[8]], up = [view[1], view[5], view[9]], back = [view[2], view[6], view[10]];
+    const dir = d => { const v = [0, 1, 2].map(k => right[k] * d[0] + up[k] * d[1] + back[k] * d[2]); const l = Math.hypot(...v); return v.map(x => x / l); };
+    gl.uniform3fv(U('uLDir[0]'), [...dir([g.key[0][0], g.key[0][1], g.key[0][2]]), ...dir(g.fill[0])]);
+    gl.uniform3fv(U('uLCol[0]'), [...g.key[1], ...g.fill[1]]);
+  }
+
+  // one material + its textures, then draw a range of a mesh
+  function draw(R, m, mat, tex, start = 0, count = m.count) {
+    const { gl, U } = R, M = Object.assign({}, DEFAULT, mat);
+    gl.bindBuffer(gl.ARRAY_BUFFER, m.vb); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, m.ib);
+    [['aP', 3, 0], ['aN', 3, 12], ['aUV', 2, 24], ['aT', 4, 32]].forEach(([n, s, o]) => { const l = gl.getAttribLocation(R.prog, n); if (l < 0) return; gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, s, gl.FLOAT, false, 48, o); });
+    [tex.base, tex.bump, tex.self, tex.detail, tex.extra].forEach((t, i) => { gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, t || R.blank); });
+    gl.uniform3fv(U('uColor2'), M.color2); gl.uniform3fv(U('uFresnel'), M.phongfresnelranges); gl.uniform3fv(U('uSelfTint'), M.selfillumtint);
+    gl.uniform1f(U('uHalfLambert'), M.halflambert ? 1 : 0); gl.uniform1f(U('uHasBump'), tex.bump ? 1 : 0); gl.uniform1f(U('uMaskNoBump'), M.maskNoBump);
+    gl.uniform1f(U('uPhong'), M.phong ? 1 : 0); gl.uniform1f(U('uPhongBoost'), M.phongboost); gl.uniform1f(U('uPhongExp'), M.phongexponent);
+    gl.uniform1f(U('uAlbedoTint'), M.phongalbedotint ? 1 : 0); gl.uniform1f(U('uRim'), M.rimlight ? 1 : 0);
+    gl.uniform1f(U('uRimBoost'), M.rimlightboost); gl.uniform1f(U('uRimExp'), M.rimlightexponent);
+    gl.uniform1f(U('uSelfIllum'), M.selfillum && tex.self ? 1 : 0); gl.uniform1f(U('uAlphaMode'), M.alphaMode);
+    gl.uniform1f(U('uDetMode'), tex.detail ? M.detailblendmode : 0); gl.uniform1f(U('uDetFactor'), M.detailblendfactor); gl.uniform4fv(U('uDetRect'), M.detailrect);
+    gl.uniform1f(U('uExtraMode'), tex.extra && M.extraId ? 1 : 0); gl.uniform4fv(U('uExtraCol'), [...(M.extraCol || [0, 0, 0]), M.extraId || 0]); gl.uniform1f(U('uExtraAmt'), M.extraAmt || 0);
+    gl.drawElements(gl.TRIANGLES, count, m.type, start * m.bytes);
+  }
+
+  // ---- VTF reader: the first frame's full-size image as RGBA (DXT1/3/5, RGBA/BGRA/BGRX 8888, RGB/BGR 888, I8, IA88, A8)
+  const FMT = { 0: 'RGBA8888', 1: 'ABGR8888', 2: 'RGB888', 3: 'BGR888', 5: 'I8', 6: 'IA88', 8: 'A8', 12: 'BGRA8888', 13: 'DXT1', 14: 'DXT3', 15: 'DXT5', 16: 'BGRX8888' };
+  const BPP = { RGBA8888: 4, ABGR8888: 4, RGB888: 3, BGR888: 3, I8: 1, IA88: 2, A8: 1, BGRA8888: 4, BGRX8888: 4 };
+  const levelSize = (f, w, h) => f === 'DXT1' ? Math.max(1, (w + 3) >> 2) * Math.max(1, (h + 3) >> 2) * 8 : f === 'DXT3' || f === 'DXT5' ? Math.max(1, (w + 3) >> 2) * Math.max(1, (h + 3) >> 2) * 16 : w * h * BPP[f];
+  function decodeVTF(buf) {
+    const d = new DataView(buf), u8 = new Uint8Array(buf);
+    if (u8[0] !== 86 || u8[1] !== 84 || u8[2] !== 70) throw new Error('not a VTF');
+    const minor = d.getUint32(8, true), hdr = d.getUint32(12, true), w = d.getUint16(16, true), h = d.getUint16(18, true), flags = d.getUint32(20, true);
+    const frames = d.getUint16(24, true), f = FMT[d.getInt32(52, true)], mips = u8[56], lowF = FMT[d.getInt32(57, true)], lw = u8[61], lh = u8[62];
+    if (!f) throw new Error('unsupported VTF format ' + d.getInt32(52, true));
+    const faces = flags & 0x4000 ? 6 : 1, depth = minor >= 2 ? Math.max(1, d.getUint16(63, true)) : 1;
+    let off = hdr + (lowF && lw ? levelSize(lowF, lw, lh) : 0);
+    if (minor >= 3) {   // resource directory: the high-res image's offset
+      const n = d.getUint32(68, true);
+      for (let i = 0; i < n; i++) if (u8[80 + i * 8] === 0x30 && u8[81 + i * 8] === 0 && u8[82 + i * 8] === 0) off = d.getUint32(84 + i * 8, true);
+    }
+    for (let m = mips - 1; m >= 1; m--) off += levelSize(f, Math.max(1, w >> m), Math.max(1, h >> m)) * frames * faces * depth;
+    const out = new Uint8ClampedArray(w * h * 4), src = u8.subarray(off);
+    if (f.startsWith('DXT')) decodeDXT(f, src, w, h, out);
+    else for (let i = 0; i < w * h; i++) {
+      const s = i * BPP[f], o = i * 4, a = src;
+      switch (f) {
+        case 'RGBA8888': out.set([a[s], a[s + 1], a[s + 2], a[s + 3]], o); break;
+        case 'ABGR8888': out.set([a[s + 3], a[s + 2], a[s + 1], a[s]], o); break;
+        case 'RGB888': out.set([a[s], a[s + 1], a[s + 2], 255], o); break;
+        case 'BGR888': out.set([a[s + 2], a[s + 1], a[s], 255], o); break;
+        case 'BGRA8888': out.set([a[s + 2], a[s + 1], a[s], a[s + 3]], o); break;
+        case 'BGRX8888': out.set([a[s + 2], a[s + 1], a[s], 255], o); break;
+        case 'I8': out.set([a[s], a[s], a[s], 255], o); break;
+        case 'IA88': out.set([a[s], a[s], a[s], a[s + 1]], o); break;
+        case 'A8': out.set([255, 255, 255, a[s]], o); break;
+      }
+    }
+    return new ImageData(out, w, h);
+  }
+  function c565(v) { const r = (v >> 11) & 31, g = (v >> 5) & 63, b = v & 31; return [(r << 3) | (r >> 2), (g << 2) | (g >> 4), (b << 3) | (b >> 2)]; }
+  function decodeDXT(f, src, w, h, out) {
+    const bw = Math.max(1, (w + 3) >> 2), bh = Math.max(1, (h + 3) >> 2), bs = f === 'DXT1' ? 8 : 16;
+    for (let by = 0; by < bh; by++) for (let bx = 0; bx < bw; bx++) {
+      const o = (by * bw + bx) * bs, co = f === 'DXT1' ? o : o + 8;
+      const v0 = src[co] | (src[co + 1] << 8), v1 = src[co + 2] | (src[co + 3] << 8), p0 = c565(v0), p1 = c565(v1);
+      const pal = f === 'DXT1' && v0 <= v1 ? [p0, p1, p0.map((x, k) => (x + p1[k]) >> 1), [0, 0, 0]] : [p0, p1, p0.map((x, k) => (2 * x + p1[k]) / 3), p0.map((x, k) => (x + 2 * p1[k]) / 3)];
+      const bits = src[co + 4] | (src[co + 5] << 8) | (src[co + 6] << 16) | (src[co + 7] << 24);
+      let alpha = null;
+      if (f === 'DXT5') {
+        const a0 = src[o], a1 = src[o + 1], ap = [a0, a1];
+        if (a0 > a1) for (let k = 1; k < 7; k++) ap.push(((7 - k) * a0 + k * a1) / 7); else { for (let k = 1; k < 5; k++) ap.push(((5 - k) * a0 + k * a1) / 5); ap.push(0, 255); }
+        alpha = []; let ab = 0n; for (let k = 0; k < 6; k++) ab |= BigInt(src[o + 2 + k]) << BigInt(8 * k);
+        for (let k = 0; k < 16; k++) alpha.push(ap[Number((ab >> BigInt(3 * k)) & 7n)]);
+      } else if (f === 'DXT3') { alpha = []; for (let k = 0; k < 16; k++) alpha.push(((src[o + (k >> 1)] >> ((k & 1) * 4)) & 15) * 17); }
+      for (let k = 0; k < 16; k++) {
+        const x = bx * 4 + (k & 3), y = by * 4 + (k >> 2); if (x >= w || y >= h) continue;
+        const ci = (bits >>> (2 * k)) & 3, c = pal[ci], i = (y * w + x) * 4;
+        out[i] = c[0]; out[i + 1] = c[1]; out[i + 2] = c[2];
+        out[i + 3] = alpha ? alpha[k] : (f === 'DXT1' && v0 <= v1 && ci === 3 ? 0 : 255);
+      }
+    }
+  }
+  const loadVTF = url => fetch(url).then(r => { if (!r.ok) throw new Error('could not load ' + url); return r.arrayBuffer(); }).then(decodeVTF);
+
+  return { program, mesh, texture, upload, frame, draw, decodeVTF, loadVTF, RIGS, DEFAULT };
+})();
+
+const W0 = [1, 0, 2 / 3, 1 / 3];
+function to565(r, g, b) { r = clamp(Math.round(r), 0, 255); g = clamp(Math.round(g), 0, 255); b = clamp(Math.round(b), 0, 255); return ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3); }
+function from565(v) { const r = (v >> 11) & 31, g = (v >> 5) & 63, b = v & 31; return [(r << 3) | (r >> 2), (g << 2) | (g >> 4), (b << 3) | (b >> 2)]; }
+function fitBlock(px, c0, c1) {
+  if (c0 < c1) { const t = c0; c0 = c1; c1 = t; }
+  const p0 = from565(c0), p1 = from565(c1);
+  const pal = [p0, p1, p0.map((v, k) => (2 * v + p1[k]) / 3), p0.map((v, k) => (v + 2 * p1[k]) / 3)];
+  const idx = new Uint8Array(16); let err = 0;
+  for (let i = 0; i < 16; i++) {
+    let best = 0, bd = Infinity;
+    for (let j = 0; j < 4; j++) { const dr = px[i * 3] - pal[j][0], dg = px[i * 3 + 1] - pal[j][1], db = px[i * 3 + 2] - pal[j][2]; const d = dr * dr + dg * dg + db * db; if (d < bd) { bd = d; best = j; } }
+    idx[i] = c0 === c1 ? 0 : best; err += c0 === c1 ? (px[i * 3] - p0[0]) ** 2 + (px[i * 3 + 1] - p0[1]) ** 2 + (px[i * 3 + 2] - p0[2]) ** 2 : bd;
+  }
+  return { c0, c1, idx, err };
+}
+function encodeDXT1(rgb, w, h) {
+  const bw = Math.max(1, (w + 3) >> 2), bh = Math.max(1, (h + 3) >> 2), out = new Uint8Array(bw * bh * 8), px = new Float64Array(48);
+  for (let by = 0; by < bh; by++) for (let bx = 0; bx < bw; bx++) {
+    for (let i = 0; i < 16; i++) { const x = bx * 4 + (i & 3), y = by * 4 + (i >> 2); for (let k = 0; k < 3; k++) px[i * 3 + k] = x < w && y < h ? rgb[(y * w + x) * 3 + k] : 0; }
+    const mean = [0, 0, 0]; for (let i = 0; i < 16; i++) for (let k = 0; k < 3; k++) mean[k] += px[i * 3 + k] / 16;
+    const cov = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+    for (let i = 0; i < 16; i++) { const d = [px[i * 3] - mean[0], px[i * 3 + 1] - mean[1], px[i * 3 + 2] - mean[2]]; for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) cov[a * 3 + b] += d[a] * d[b]; }
+    let ax = [1 / Math.sqrt(3), 1 / Math.sqrt(3), 1 / Math.sqrt(3)];
+    for (let it = 0; it < 8; it++) { const n = [0, 1, 2].map(a => cov[a * 3] * ax[0] + cov[a * 3 + 1] * ax[1] + cov[a * 3 + 2] * ax[2]); const l = Math.hypot(...n) + 1e-9; ax = n.map(v => v / l); }
+    let lo = Infinity, hi = -Infinity;
+    for (let i = 0; i < 16; i++) { const pr = (px[i * 3] - mean[0]) * ax[0] + (px[i * 3 + 1] - mean[1]) * ax[1] + (px[i * 3 + 2] - mean[2]) * ax[2]; lo = Math.min(lo, pr); hi = Math.max(hi, pr); }
+    let r = fitBlock(px, to565(...mean.map((m, k) => m + ax[k] * hi)), to565(...mean.map((m, k) => m + ax[k] * lo)));
+    for (let it = 0; it < 3; it++) {   // least-squares endpoint refinement
+      let aa = 0, bb = 0, ab = 0; const axs = [0, 0, 0], bxs = [0, 0, 0];
+      for (let i = 0; i < 16; i++) { const a = W0[r.idx[i]], b = 1 - a; aa += a * a; bb += b * b; ab += a * b; for (let k = 0; k < 3; k++) { axs[k] += a * px[i * 3 + k]; bxs[k] += b * px[i * 3 + k]; } }
+      const det = aa * bb - ab * ab; if (Math.abs(det) < 1e-6) break;
+      const n0 = [0, 1, 2].map(k => (axs[k] * bb - bxs[k] * ab) / det), n1 = [0, 1, 2].map(k => (bxs[k] * aa - axs[k] * ab) / det);
+      const r2 = fitBlock(px, to565(...n0), to565(...n1)); if (r2.err < r.err) r = r2; else break;
+    }
+    let bits = 0; for (let i = 0; i < 16; i++) bits += r.idx[i] * 2 ** (2 * i);
+    const o = (by * bw + bx) * 8; out[o] = r.c0 & 255; out[o + 1] = r.c0 >> 8; out[o + 2] = r.c1 & 255; out[o + 3] = r.c1 >> 8;
+    for (let k = 0; k < 4; k++) out[o + 4 + k] = Math.floor(bits / 2 ** (8 * k)) & 255;
+  }
+  return out;
+}
+function boxDown(rgb, w, h, f) {
+  const nw = Math.max(1, w >> f), nh = Math.max(1, h >> f), sx = w / nw, sy = h / nh, out = new Uint8Array(nw * nh * 3);
+  for (let y = 0; y < nh; y++) for (let x = 0; x < nw; x++) for (let k = 0; k < 3; k++) {
+    let s = 0; for (let yy = 0; yy < sy; yy++) for (let xx = 0; xx < sx; xx++) s += rgb[((y * sy + yy) * w + x * sx + xx) * 3 + k];
+    out[(y * nw + x) * 3 + k] = Math.round(s / (sx * sy));
+  }
+  return [out, nw, nh];
+}
+
+
+// ---------------------------------------------------------------- state
+// a material: its base image and a stack of layers composited into one canvas (what the 3D view and exports use)
+//   layer: { name, kind: 'base' | 'paint' | 'fill', canvas (paint: its pixels, fill: its mask), color (fill), opacity, blend, visible }
+const T = { tool: 'brush', size: 24, hard: 0.6, flow: 0.8, color: '#4e94e6', mirror: false };
+let MODEL = null, active = null, MODELS = [];   // MODEL: { name, meta?, mesh, mats, draws, height, center, bodyparts?, bg }
+const BLENDS = [['source-over', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['overlay', 'Overlay'], ['soft-light', 'Soft light'], ['color', 'Colour (keep shading)'], ['hue', 'Hue'], ['luminosity', 'Brightness']];
+const canvas = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+const ctx2 = c => c.getContext('2d', { willReadFrequently: true });
+const pow2 = v => clamp(2 ** Math.round(Math.log2(Math.max(4, v))), 64, 2048);
+const img = src => new Promise((ok, bad) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => ok(i); i.onerror = () => bad(new Error('could not load ' + src)); i.src = src; });
+
+function makeMat(name, source, extra = {}) {
+  const w = pow2(source ? source.width : 1024), h = pow2(source ? source.height : 1024);
+  const base = canvas(w, h), x = ctx2(base);
+  if (source) x.drawImage(source, 0, 0, w, h); else { x.fillStyle = '#9a9a9a'; x.fillRect(0, 0, w, h); }
+  const comp = canvas(w, h);
+  const m = Object.assign({ name, w, h, comp, layers: [{ name: 'Base texture', kind: 'base', canvas: base, opacity: 1, blend: 'source-over', visible: true }], sel: 0, undo: [], dirty: true }, extra);
+  m.hasAlpha = alphaOf(base);
+  return m;
+}
+function alphaOf(c) { const d = ctx2(c).getImageData(0, 0, c.width, c.height).data; for (let i = 3; i < d.length; i += 64) if (d[i] < 250) return true; return false; }
+const edited = m => m.layers.length > 1 || !!m.replaced;
+
+// composite the layer stack into m.comp
+const scratch = canvas(4, 4);
+function composite(m) {
+  const x = ctx2(m.comp); x.globalCompositeOperation = 'copy'; x.globalAlpha = 1;
+  let first = true;
+  for (const L of m.layers) {
+    if (!L.visible || L.opacity <= 0) continue;
+    let src = L.canvas;
+    if (L.kind === 'fill') {   // the fill colour through the mask
+      if (scratch.width !== m.w || scratch.height !== m.h) { scratch.width = m.w; scratch.height = m.h; }
+      const s = ctx2(scratch); s.globalCompositeOperation = 'copy'; s.drawImage(L.canvas, 0, 0);
+      s.globalCompositeOperation = 'source-in'; s.fillStyle = L.color; s.fillRect(0, 0, m.w, m.h); src = scratch;
+    }
+    x.globalCompositeOperation = first ? 'copy' : L.blend; x.globalAlpha = L.opacity;
+    x.drawImage(src, 0, 0); first = false;
+  }
+  if (first) { x.clearRect(0, 0, m.w, m.h); }
+  x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1;
+  m.dirty = false; m.upload = true;
+}
+
+// ---------------------------------------------------------------- 3D view
+const G = { yaw: 0.35, pitch: 0.12, dist: 100, pan: [0, 0, 0] };
+const PICK_VS = `attribute vec3 aP; attribute vec2 aUV; uniform mat4 uMVP; varying vec2 vUV;
+void main() { vUV = aUV; gl_Position = uMVP * vec4(aP, 1.0); }`;
+// mode 0: texture coordinate (12 bits each) and material; mode 1: depth (24 bits), for unprojecting the point
+const PICK_FS = `precision highp float; varying vec2 vUV; uniform float uId, uMode;
+void main() {
+  if (uMode > 0.5) { vec3 e = fract(gl_FragCoord.z * vec3(1.0, 255.0, 65025.0)); e -= e.yzz * vec3(1.0 / 255.0, 1.0 / 255.0, 0.0); gl_FragColor = vec4(e, 1.0); return; }
+  vec2 f = fract(vUV); float u = floor(f.x * 4095.0 + 0.5), v = floor(f.y * 4095.0 + 0.5);
+  gl_FragColor = vec4(floor(u / 16.0) / 255.0, (mod(u, 16.0) * 16.0 + floor(v / 256.0)) / 255.0, mod(v, 256.0) / 255.0, uId / 255.0); }`;
+function initGL() {
+  const cv = $('gl'), gl = cv.getContext('webgl', { antialias: true });
+  if (!gl) throw new Error('WebGL is not available in this browser');
+  gl.getExtension('OES_element_index_uint');
+  G.gl = gl; G.R = SRC.program(gl); gl.enable(gl.DEPTH_TEST);
+  const sh = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; };
+  const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, PICK_VS)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, PICK_FS)); gl.linkProgram(p);
+  G.pick = { prog: p, mvp: gl.getUniformLocation(p, 'uMVP'), id: gl.getUniformLocation(p, 'uId'), mode: gl.getUniformLocation(p, 'uMode'), aP: gl.getAttribLocation(p, 'aP'), aUV: gl.getAttribLocation(p, 'aUV') };
+  G.fb = gl.createFramebuffer(); G.fbTex = gl.createTexture(); G.fbDepth = gl.createRenderbuffer();
+}
+const v3 = { sub: (a, b) => a.map((v, i) => v - b[i]), add: (a, b) => a.map((v, i) => v + b[i]), scale: (a, s) => a.map(v => v * s), cross: (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]], norm: a => { const l = Math.hypot(...a) || 1; return a.map(v => v / l); }, dot: (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2] };
+function mul(a, b) { const o = new Array(16); for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) { let s = 0; for (let k = 0; k < 4; k++) s += a[k * 4 + r] * b[c * 4 + k]; o[c * 4 + r] = s; } return o; }
+function camera(w, h) {
+  const H = MODEL.height, c = MODEL.center, tgt = v3.add(c, G.pan);
+  const cp = Math.cos(G.pitch), eye = [tgt[0] + G.dist * cp * Math.sin(G.yaw), tgt[1] - G.dist * cp * Math.cos(G.yaw), tgt[2] + G.dist * Math.sin(G.pitch)];
+  const t = 1 / Math.tan(0.35), n = Math.max(0.05, H * 0.005), f = H * 40, proj = [t / (w / h), 0, 0, 0, 0, t, 0, 0, 0, 0, (f + n) / (n - f), -1, 0, 0, 2 * f * n / (n - f), 0];
+  const z = v3.norm(v3.sub(eye, tgt)), x = v3.norm(v3.cross([0, 0, 1], z)), y = v3.cross(z, x);
+  const view = [x[0], y[0], z[0], 0, x[1], y[1], z[1], 0, x[2], y[2], z[2], 0, -v3.dot(x, eye), -v3.dot(y, eye), -v3.dot(z, eye), 1];
+  return { eye, view, mvp: mul(proj, view), right: x, up: y, t };
+}
+const shownDraws = () => MODEL.draws.filter(d => d.choice === undefined || d.choice === (MODEL.bg[d.bp] || 0));
+const FLAT = { amb: [[1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1]], key: [[0, 0, 1], [0, 0, 0]], fill: [[0, 0, 1], [0, 0, 0]] };
+function draw() {
+  const gl = G.gl, cv = gl.canvas, dpr = Math.min(2, devicePixelRatio || 1), w = Math.round(cv.clientWidth * dpr), h = Math.round(cv.clientHeight * dpr);
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+  gl.viewport(0, 0, w, h);
+  gl.clearColor(0.043, 0.055, 0.078, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  if (!MODEL) return;
+  for (const m of MODEL.mats) {
+    if (m.dirty) composite(m);
+    if (m.upload) { if (!m.tex) m.tex = SRC.texture(gl, m.comp); else SRC.upload(gl, m.tex, m.comp); m.upload = false; }
+  }
+  const cam = camera(w, h), flat = $('rig').value === 'flat';
+  SRC.frame(G.R, cam.mvp, cam.eye, cam.view, flat ? FLAT : $('rig').value);
+  const pass = see => { for (const d of shownDraws()) {
+    const m = MODEL.mats[d.mat], look = Object.assign({}, m.look);
+    if (flat) Object.assign(look, { phong: false, rimlight: false, halflambert: false, color2: [1, 1, 1] });
+    if ((look.alphaMode === 2) !== see) continue;
+    SRC.draw(G.R, MODEL.mesh, look, { base: m.tex, bump: flat ? null : m.bump }, d.start, d.count);
+  } };
+  pass(false);
+  gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false); pass(true);
+  gl.disable(gl.BLEND); gl.depthMask(true);
+}
+// what is under a screen point: { mat, u, v } (u, v in 0..1) or null
+function pickAt(px, py) {
+  const o = pickPass(px, py, 0); if (!o[3]) return null;
+  const u = o[0] * 16 + (o[1] >> 4), v = (o[1] & 15) * 256 + o[2];
+  return { mat: o[3] - 1, u: (u + 0.5) / 4096, v: (v + 0.5) / 4096 };
+}
+function pickPass(px, py, mode) {
+  const gl = G.gl, cv = gl.canvas, w = cv.width, h = cv.height, P = G.pick;
+  if (G.fbW !== w || G.fbH !== h) {
+    gl.bindTexture(gl.TEXTURE_2D, G.fbTex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.bindRenderbuffer(gl.RENDERBUFFER, G.fbDepth); gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, w, h);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, G.fb);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, G.fbTex, 0);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, G.fbDepth);
+    G.fbW = w; G.fbH = h;
+  }
+  gl.bindFramebuffer(gl.FRAMEBUFFER, G.fb); gl.viewport(0, 0, w, h);
+  gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  gl.useProgram(P.prog); gl.uniformMatrix4fv(P.mvp, false, camera(w, h).mvp); gl.uniform1f(P.mode, mode);
+  const mesh = MODEL.mesh; gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vb); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.ib);
+  for (let i = 0; i < 8; i++) gl.disableVertexAttribArray(i);
+  gl.enableVertexAttribArray(P.aP); gl.vertexAttribPointer(P.aP, 3, gl.FLOAT, false, 48, 0);
+  gl.enableVertexAttribArray(P.aUV); gl.vertexAttribPointer(P.aUV, 2, gl.FLOAT, false, 48, 24);
+  for (const d of shownDraws()) {
+    if (MODEL.mats[d.mat].look.alphaMode === 2) continue;   // see-through hair and glass: paint what is behind
+    gl.uniform1f(P.id, d.mat + 1); gl.drawElements(gl.TRIANGLES, d.count, mesh.type, d.start * mesh.bytes);
+  }
+  const o = new Uint8Array(4); gl.readPixels(Math.round(px), Math.round(h - py), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, o);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  for (let i = 0; i < 8; i++) gl.disableVertexAttribArray(i);
+  return o;
+}
+// the mirrored point: pick again at the mirror image of the surface point across the model's left/right middle
+function mirrorPick(px, py) {
+  const gl = G.gl, w = gl.canvas.width, h = gl.canvas.height, depth = depthAt(px, py);
+  if (depth === null) return null;
+  const cam = camera(w, h), inv = invert(cam.mvp), ndc = [px / w * 2 - 1, 1 - py / h * 2, depth * 2 - 1, 1];
+  const p = mul4(inv, ndc); const world = [p[0] / p[3], p[1] / p[3], p[2] / p[3]];
+  world[0] = 2 * MODEL.center[0] - world[0];   // models face -Y: left/right is X
+  const q = mul4(cam.mvp, [...world, 1]); if (q[3] <= 0) return null;
+  return pickAt((q[0] / q[3] * 0.5 + 0.5) * w, (0.5 - q[1] / q[3] * 0.5) * h);
+}
+function depthAt(px, py) {
+  const o = pickPass(px, py, 1); if (!o[3]) return null;
+  return o[0] / 255 + o[1] / 65025 + o[2] / 16581375;
+}
+function mul4(m, v) { return [0, 1, 2, 3].map(r => m[r] * v[0] + m[4 + r] * v[1] + m[8 + r] * v[2] + m[12 + r] * v[3]); }
+function invert(m) {
+  const inv = new Array(16), [a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15] = m;
+  inv[0] = a5 * a10 * a15 - a5 * a11 * a14 - a9 * a6 * a15 + a9 * a7 * a14 + a13 * a6 * a11 - a13 * a7 * a10;
+  inv[4] = -a4 * a10 * a15 + a4 * a11 * a14 + a8 * a6 * a15 - a8 * a7 * a14 - a12 * a6 * a11 + a12 * a7 * a10;
+  inv[8] = a4 * a9 * a15 - a4 * a11 * a13 - a8 * a5 * a15 + a8 * a7 * a13 + a12 * a5 * a11 - a12 * a7 * a9;
+  inv[12] = -a4 * a9 * a14 + a4 * a10 * a13 + a8 * a5 * a14 - a8 * a6 * a13 - a12 * a5 * a10 + a12 * a6 * a9;
+  inv[1] = -a1 * a10 * a15 + a1 * a11 * a14 + a9 * a2 * a15 - a9 * a3 * a14 - a13 * a2 * a11 + a13 * a3 * a10;
+  inv[5] = a0 * a10 * a15 - a0 * a11 * a14 - a8 * a2 * a15 + a8 * a3 * a14 + a12 * a2 * a11 - a12 * a3 * a10;
+  inv[9] = -a0 * a9 * a15 + a0 * a11 * a13 + a8 * a1 * a15 - a8 * a3 * a13 - a12 * a1 * a11 + a12 * a3 * a9;
+  inv[13] = a0 * a9 * a14 - a0 * a10 * a13 - a8 * a1 * a14 + a8 * a2 * a13 + a12 * a1 * a10 - a12 * a2 * a9;
+  inv[2] = a1 * a6 * a15 - a1 * a7 * a14 - a5 * a2 * a15 + a5 * a3 * a14 + a13 * a2 * a7 - a13 * a3 * a6;
+  inv[6] = -a0 * a6 * a15 + a0 * a7 * a14 + a4 * a2 * a15 - a4 * a3 * a14 - a12 * a2 * a7 + a12 * a3 * a6;
+  inv[10] = a0 * a5 * a15 - a0 * a7 * a13 - a4 * a1 * a15 + a4 * a3 * a13 + a12 * a1 * a7 - a12 * a3 * a5;
+  inv[14] = -a0 * a5 * a14 + a0 * a6 * a13 + a4 * a1 * a14 - a4 * a2 * a13 - a12 * a1 * a6 + a12 * a2 * a5;
+  inv[3] = -a1 * a6 * a11 + a1 * a7 * a10 + a5 * a2 * a11 - a5 * a3 * a10 - a9 * a2 * a7 + a9 * a3 * a6;
+  inv[7] = a0 * a6 * a11 - a0 * a7 * a10 - a4 * a2 * a11 + a4 * a3 * a10 + a8 * a2 * a7 - a8 * a3 * a6;
+  inv[11] = -a0 * a5 * a11 + a0 * a7 * a9 + a4 * a1 * a11 - a4 * a3 * a9 - a8 * a1 * a7 + a8 * a3 * a5;
+  inv[15] = a0 * a5 * a10 - a0 * a6 * a9 - a4 * a1 * a10 + a4 * a2 * a9 + a8 * a1 * a6 - a8 * a2 * a5;
+  const det = a0 * inv[0] + a1 * inv[4] + a2 * inv[8] + a3 * inv[12];
+  return inv.map(v => v / det);
+}
+
+// ---------------------------------------------------------------- painting
+// strokes are stamped in texture space; a stroke stays on the material it started on, and skips across UV seams
+// (a jump bigger than a few brush widths means the next point is on another UV island: start a new segment there)
+const stamp = (() => { const c = canvas(1, 1); return c; })();
+function brushTip(px, color, hard) {   // a round soft tip, px wide
+  const n = Math.max(2, Math.ceil(px)); stamp.width = stamp.height = n;
+  const x = ctx2(stamp), g = x.createRadialGradient(n / 2, n / 2, 0, n / 2, n / 2, n / 2), [r, gg, b] = hex2rgb(color);
+  g.addColorStop(0, `rgba(${r},${gg},${b},1)`); g.addColorStop(clamp(hard, 0, 0.98), `rgba(${r},${gg},${b},1)`); g.addColorStop(1, `rgba(${r},${gg},${b},0)`);
+  x.clearRect(0, 0, n, n); x.fillStyle = g; x.fillRect(0, 0, n, n); return stamp;
+}
+let stroke = null;
+function layerForPaint(m) {
+  let L = m.layers[m.sel];
+  if (L.kind === 'base') {   // never paint the original: start a paint layer above it
+    L = newLayer(m, 'paint'); flash('Added a paint layer to paint on (the base texture stays untouched).');
+  }
+  return L;
+}
+function beginStroke(hit) {
+  const m = MODEL.mats[hit.mat];
+  if (T.tool === 'pick') { pickColor(m, hit); return; }
+  if (m !== active) selectMat(m);
+  const L = layerForPaint(m);
+  m.undo.push({ L, data: ctx2(L.canvas).getImageData(0, 0, m.w, m.h) }); if (m.undo.length > 25) m.undo.shift();
+  stroke = { m, L, last: null, lastMirror: null };
+  strokeTo(hit, false);
+}
+function strokeTo(hit, mirrored) {
+  if (!stroke || !hit || MODEL.mats[hit.mat] !== stroke.m) return;
+  const { m, L } = stroke, key = mirrored ? 'lastMirror' : 'last', x = ctx2(L.canvas);
+  const p = [hit.u * m.w, hit.v * m.h], size = T.size * m.w / 1024, tip = brushTip(size, L.kind === 'fill' ? '#ffffff' : T.color, T.hard);
+  x.globalCompositeOperation = T.tool === 'erase' ? 'destination-out' : 'source-over';
+  x.globalAlpha = T.flow * 0.35;
+  const last = stroke[key], spacing = Math.max(1, size * 0.18);
+  const pts = [];
+  if (last && Math.hypot(p[0] - last[0], p[1] - last[1]) < size * 4) {
+    const d = Math.hypot(p[0] - last[0], p[1] - last[1]), n = Math.floor(d / spacing);
+    for (let i = 1; i <= n; i++) pts.push([last[0] + (p[0] - last[0]) * i / n, last[1] + (p[1] - last[1]) * i / n]);
+    if (!n) return;   // not far enough for the next dab
+  } else pts.push(p);
+  for (const [px, py] of pts) {
+    x.drawImage(tip, px - tip.width / 2, py - tip.height / 2);
+    // wrap across texture edges for tiling UVs
+    if (px < size) x.drawImage(tip, px + m.w - tip.width / 2, py - tip.height / 2);
+    if (px > m.w - size) x.drawImage(tip, px - m.w - tip.width / 2, py - tip.height / 2);
+  }
+  stroke[key] = pts[pts.length - 1];
+  x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1;
+  m.dirty = true; L.thumbDirty = true;
+}
+function endStroke() { if (stroke) { refreshThumbs(); markEdited(); } stroke = null; }
+function pickColor(m, hit) {
+  if (m.dirty) composite(m);
+  const d = ctx2(m.comp).getImageData(Math.floor(hit.u * m.w) % m.w, Math.floor(hit.v * m.h) % m.h, 1, 1).data;
+  T.color = rgb2hex([d[0], d[1], d[2]]); $('color').value = T.color; flash('Picked ' + T.color + '.');
+  if (active && active.layers[active.sel].kind === 'fill') { active.layers[active.sel].color = T.color; active.dirty = true; buildLayers(); }
+}
+function undo() {
+  if (!active || !active.undo.length) return;
+  const u = active.undo.pop(); ctx2(u.L.canvas).putImageData(u.data, 0, 0); active.dirty = true; u.L.thumbDirty = true; refreshThumbs();
+}
+
+// pointer handling on the 3D view
+function initView() {
+  const cv = $('gl'), cur = $('cursor');
+  let mode = null, prev = null, spaceDown = false;
+  const scr = e => { const r = cv.getBoundingClientRect(), dpr = cv.width / r.width; return [(e.clientX - r.left) * dpr, (e.clientY - r.top) * dpr]; };
+  cv.addEventListener('contextmenu', e => e.preventDefault());
+  cv.addEventListener('pointerdown', e => {
+    if (!MODEL) return;
+    cv.setPointerCapture(e.pointerId); prev = [e.clientX, e.clientY];
+    if (e.button === 1) mode = 'pan';
+    else if (e.button === 2 || spaceDown || T.tool === 'orbit' || e.altKey) mode = 'orbit';
+    else {
+      const [x, y] = scr(e), hit = pickAt(x, y);
+      if (!hit) { mode = 'orbit'; return; }
+      mode = 'paint'; beginStroke(hit);
+      if (stroke && T.mirror) strokeTo(mirrorPick(x, y), true);
+      if (T.tool === 'pick') mode = null;
+    }
+  });
+  cv.addEventListener('pointermove', e => {
+    showCursor(e);
+    if (!mode) return;
+    const dx = e.clientX - prev[0], dy = e.clientY - prev[1]; prev = [e.clientX, e.clientY];
+    if (mode === 'orbit') { G.yaw -= dx * 0.01; G.pitch = clamp(G.pitch + dy * 0.01, -1.4, 1.4); }
+    else if (mode === 'pan') { const cam = camera(cv.width, cv.height), s = G.dist * 0.0016; G.pan = v3.add(G.pan, v3.add(v3.scale(cam.right, -dx * s), v3.scale(cam.up, dy * s))); }
+    else if (mode === 'paint') {
+      const [x, y] = scr(e);
+      for (const ce of e.getCoalescedEvents ? e.getCoalescedEvents() : [e]) { const [cx, cy] = scr(ce); strokeTo(pickAt(cx, cy), false); }
+      if (T.mirror) strokeTo(mirrorPick(x, y), true);
+    }
+  });
+  const up = () => { if (mode === 'paint') endStroke(); mode = null; };
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  cv.addEventListener('pointerleave', () => cur.style.display = 'none');
+  cv.addEventListener('wheel', e => { e.preventDefault(); if (MODEL) G.dist = clamp(G.dist * Math.exp(e.deltaY * 0.0012), MODEL.height * 0.08, MODEL.height * 4); }, { passive: false });
+  addEventListener('keydown', e => {
+    if (e.target.matches('input, select, textarea')) return;
+    if (e.code === 'Space') { spaceDown = true; e.preventDefault(); }
+    else if (e.key === '[') setSize(T.size / 1.2); else if (e.key === ']') setSize(T.size * 1.2);
+    else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
+    else if (!e.ctrlKey && !e.metaKey) { const t = { b: 'brush', e: 'erase', i: 'pick' }[e.key.toLowerCase()]; if (t) setTool(t); }
+  });
+  addEventListener('keyup', e => { if (e.code === 'Space') spaceDown = false; });
+  // the brush outline: its texture size projected roughly onto the screen at the point under the cursor
+  function showCursor(e) {
+    if (!MODEL || T.tool === 'orbit') { cur.style.display = 'none'; return; }
+    const r = cv.getBoundingClientRect(), H = MODEL.height, texelsPerUnit = (active ? active.w : 1024) / (H * 0.9);
+    const worldSize = T.size / 1024 * (active ? active.w : 1024) / texelsPerUnit, px = worldSize / G.dist * (r.height / 2) / Math.tan(0.35) * 0.5;
+    const d = clamp(px, 4, 400);
+    cur.style.display = 'block'; cur.style.width = cur.style.height = d + 'px';
+    cur.style.left = (e.clientX - r.left - d / 2) + 'px'; cur.style.top = (e.clientY - r.top - d / 2) + 'px';
+  }
+}
+// the 2D texture panel: shows the composite and takes paint too
+function initUV() {
+  const cv = $('uv'); let down = false;
+  const hitOf = e => { const r = cv.getBoundingClientRect(); return active && { mat: MODEL.mats.indexOf(active), u: clamp((e.clientX - r.left) / r.width, 0, 0.9999), v: clamp((e.clientY - r.top) / r.height, 0, 0.9999) }; };
+  cv.addEventListener('pointerdown', e => { const h = hitOf(e); if (!h || T.tool === 'orbit') return; cv.setPointerCapture(e.pointerId); beginStroke(h); down = T.tool !== 'pick'; });
+  cv.addEventListener('pointermove', e => { if (down) strokeTo(hitOf(e), false); });
+  const up = () => { if (down) endStroke(); down = false; };
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+}
+function drawUV() {
+  const cv = $('uv'), x = cv.getContext('2d');
+  x.fillStyle = '#0b0e14'; x.fillRect(0, 0, cv.width, cv.height);
+  if (active) { x.imageSmoothingQuality = 'high'; x.drawImage(active.comp, 0, 0, cv.width, cv.height); }
+}
+
+// ---------------------------------------------------------------- side panels
+function setTool(t) { T.tool = t; document.querySelectorAll('[data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === t)); }
+function setSize(v) { T.size = clamp(Math.round(v), 1, 200); $('size').value = T.size; $('sizeOut').textContent = T.size; }
+function markEdited() { document.querySelectorAll('#mats button').forEach((b, i) => b.classList.toggle('edited', !!MODEL.mats[b.dataset.i] && edited(MODEL.mats[b.dataset.i]))); }
+function buildMats() {
+  const P = $('mats'); P.innerHTML = '';
+  const used = new Set(shownDraws().map(d => d.mat));
+  MODEL.mats.forEach((m, i) => {
+    if (!used.has(i)) return;
+    const b = document.createElement('button'); b.dataset.i = i; b.innerHTML = '<span class="dot"></span><span></span>'; b.lastChild.textContent = m.name;
+    b.classList.toggle('on', m === active); b.onclick = () => selectMat(m); P.appendChild(b);
+  });
+  markEdited();
+}
+function selectMat(m) {
+  active = m; document.querySelectorAll('#mats button').forEach(b => b.classList.toggle('on', MODEL.mats[b.dataset.i] === m));
+  $('sub').textContent = MODEL.label + ' · ' + m.name + ` (${m.w}×${m.h})`;
+  buildLayers();
+}
+function newLayer(m, kind, opts = {}) {
+  const c = canvas(m.w, m.h);
+  if (kind === 'fill' && !opts.mask) { const x = ctx2(c); x.fillStyle = '#fff'; x.fillRect(0, 0, m.w, m.h); }
+  if (opts.mask) ctx2(c).drawImage(opts.mask, 0, 0, m.w, m.h);
+  const n = m.layers.filter(l => l.kind === kind).length + 1;
+  const L = { name: opts.name || (kind === 'fill' ? 'Fill ' : 'Paint ') + n, kind, canvas: c, color: opts.color || T.color, opacity: 1, blend: opts.blend || 'source-over', visible: true, thumbDirty: true };
+  m.layers.splice(m.sel + 1, 0, L); m.sel++; m.dirty = true;
+  if (m === active) buildLayers();
+  markEdited();
+  return L;
+}
+function buildLayers() {
+  const P = $('layers'); P.innerHTML = '';
+  if (!active) return;
+  [...active.layers].map((L, i) => [L, i]).reverse().forEach(([L, i]) => {
+    const r = document.createElement('div'); r.className = 'layer' + (i === active.sel ? ' on' : '');
+    r.innerHTML = '<input type="checkbox" aria-label="Show layer"><canvas width="34" height="34"></canvas><span class="nm"><span></span><span class="kind"></span></span><span></span>';
+    const [vis, th, nm] = r.children;
+    vis.checked = L.visible; vis.onclick = e => e.stopPropagation(); vis.onchange = () => { L.visible = vis.checked; active.dirty = true; };
+    nm.firstChild.textContent = L.name; nm.lastChild.textContent = L.kind === 'base' ? 'original' : L.kind === 'fill' ? 'fill · ' + blendName(L.blend) : 'paint · ' + blendName(L.blend);
+    L.thumb = th; L.thumbDirty = true;
+    r.onclick = () => { active.sel = i; buildLayers(); };
+    P.appendChild(r);
+  });
+  refreshThumbs(); buildProps(); buildPieceRow();
+}
+const blendName = b => (BLENDS.find(x => x[0] === b) || [, b])[1];
+function refreshThumbs() {
+  if (!active) return;
+  for (const L of active.layers) if (L.thumb && L.thumbDirty) {
+    const x = L.thumb.getContext('2d'); x.clearRect(0, 0, 34, 34);
+    if (L.kind === 'fill') { x.drawImage(L.canvas, 0, 0, 34, 34); x.globalCompositeOperation = 'source-in'; x.fillStyle = L.color; x.fillRect(0, 0, 34, 34); x.globalCompositeOperation = 'source-over'; }
+    else x.drawImage(L.canvas, 0, 0, 34, 34);
+    L.thumbDirty = false;
+  }
+}
+function buildProps() {
+  const P = $('props'); P.innerHTML = '';
+  const L = active.layers[active.sel]; if (!L) return;
+  if (L.kind === 'base') { P.innerHTML = '<p class="note">The original texture. Add a paint or fill layer above it; it is never changed.</p>'; return; }
+  const range = (label, val, min, max, step, on) => {
+    const l = document.createElement('label'); l.className = 'f'; l.innerHTML = `<span></span><input type="range" min="${min}" max="${max}" step="${step}"><output></output>`;
+    l.firstChild.textContent = label; const r = l.children[1], o = l.children[2]; r.value = val; o.textContent = Math.round(val * 100) + '%';
+    r.oninput = () => { on(+r.value); o.textContent = Math.round(r.value * 100) + '%'; }; P.appendChild(l);
+  };
+  range('Opacity', L.opacity, 0, 1, 0.01, v => { L.opacity = v; active.dirty = true; });
+  const bl = document.createElement('label'); bl.className = 'f'; bl.innerHTML = '<span>Blend</span><select></select><span></span>';
+  const s = bl.children[1]; BLENDS.forEach(([v, t]) => s.add(new Option(t, v))); s.value = L.blend; s.onchange = () => { L.blend = s.value; active.dirty = true; buildLayers(); };
+  P.appendChild(bl);
+  if (L.kind === 'fill') {
+    const cl = document.createElement('label'); cl.className = 'f'; cl.innerHTML = '<span>Colour</span><input type="color"><span></span>';
+    const c = cl.children[1]; c.value = L.color; c.oninput = () => { L.color = c.value; active.dirty = true; L.thumbDirty = true; refreshThumbs(); };
+    P.appendChild(cl);
+    const n = document.createElement('p'); n.className = 'note'; n.textContent = 'Brush paints this layer\'s mask in, Eraser takes it away.'; P.appendChild(n);
+  }
+  const row = document.createElement('div'); row.className = 'btns'; row.style.marginTop = '6px';
+  const btn = (t, f, title) => { const b = document.createElement('button'); b.className = 'small'; b.textContent = t; b.title = title || ''; b.onclick = f; row.appendChild(b); };
+  btn('Rename', () => { const n = prompt('Layer name', L.name); if (n) { L.name = n.slice(0, 40); buildLayers(); } });
+  btn('Up', () => moveLayer(1)); btn('Down', () => moveLayer(-1));
+  btn('Clear', () => { active.undo.push({ L, data: ctx2(L.canvas).getImageData(0, 0, active.w, active.h) }); ctx2(L.canvas).clearRect(0, 0, active.w, active.h); active.dirty = true; L.thumbDirty = true; refreshThumbs(); }, 'Empty this layer (Ctrl+Z brings it back)');
+  btn('Delete', () => { active.layers.splice(active.sel, 1); active.sel = Math.max(0, active.sel - 1); active.undo = active.undo.filter(u => u.L !== L); active.dirty = true; buildLayers(); markEdited(); });
+  P.appendChild(row);
+}
+function moveLayer(dir) {
+  const i = active.sel, j = i + dir; if (j < 1 || j >= active.layers.length) return;
+  [active.layers[i], active.layers[j]] = [active.layers[j], active.layers[i]]; active.sel = j; active.dirty = true; buildLayers();
+}
+// ID masks: on the Jedi models each clothing piece is a region of the texture; a fill layer can start masked to one
+function buildPieceRow() {
+  const P = $('pieceRow'); P.innerHTML = '';
+  const slot = MODEL.mats.indexOf(active), pieces = (MODEL.meta ? MODEL.meta.pieces : []).map((p, k) => [p, k]).filter(([p]) => p.mat === slot);
+  if (!pieces.length || !active.pieceMap) return;
+  const s = document.createElement('select'); s.setAttribute('aria-label', 'Recolour a clothing piece');
+  s.add(new Option('Recolour a piece…', '')); pieces.forEach(([p, k]) => s.add(new Option(p.name, k)));
+  s.onchange = () => {
+    if (s.value === '') return;
+    const k = +s.value, p = MODEL.meta.pieces[k], c = canvas(active.pieceMap.width, active.pieceMap.height), x = ctx2(c), d = active.pieceMap.data;
+    const im = x.createImageData(c.width, c.height); for (let i = 0; i < d.length; i += 4) if (d[i] === k + 1) { im.data[i] = im.data[i + 1] = im.data[i + 2] = 255; im.data[i + 3] = 255; }
+    x.putImageData(im, 0, 0);
+    newLayer(active, 'fill', { mask: c, name: p.name, blend: 'color', color: T.color });
+    flash(`Fill layer for "${p.name}" in Colour mode: it keeps the cloth's shading. Change its colour or blend in the layer settings.`);
+  };
+  P.appendChild(s);
+}
+
+// ---------------------------------------------------------------- models
+async function fetchBin(url) {
+  const ab = await fetch(url).then(r => { if (!r.ok) throw new Error('could not load ' + url); return r.arrayBuffer(); });
+  const u = new Uint8Array(ab, 0, 2);
+  return u[0] === 0x1f && u[1] === 0x8b ? new Response(new Blob([ab]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer() : ab;
+}
+function vmtLook(v = {}) {
+  return { color2: v.color2 || [1, 1, 1], halflambert: v.halflambert !== false, phong: !!v.phong, phongboost: v.phongboost ?? 1, phongexponent: v.phongexponent ?? 5,
+    phongfresnelranges: v.phongfresnelranges || [0, 0.5, 1], phongalbedotint: !!v.phongalbedotint, rimlight: !!v.rimlight, rimlightboost: v.rimlightboost ?? 1,
+    rimlightexponent: v.rimlightexponent ?? 4, alphaMode: v.translucent ? 2 : v.alphatest ? 1 : 0 };
+}
+function confirmLeave() { return !MODEL || !MODEL.mats.some(edited) || confirm('Your painting on this model is not exported yet. Switch anyway?'); }
+async function loadJedi(name) {
+  $('loading').hidden = false;
+  const [meta, ab] = await Promise.all([fetch(JEDI + 'm/' + name + '.json').then(r => r.json()), fetchBin(JEDI + 'm/' + name + '.bin.gz')]);
+  for (const d of meta.draws) { const b = meta.bodyparts.findIndex(x => x.name === d.bp); d.bp = b; d.choice = meta.bodyparts[b].choices.indexOf(d.choice.replace(/\.smd$/, '')); }
+  const mats = await Promise.all(meta.materials.map(async m => {
+    const base = m.base ? await img(JEDI + 'tex/' + m.base + (m.alpha ? '_a' : '') + '.png') : null;
+    const o = makeMat(m.name, base, { meta: m, look: vmtLook(m.vmt) });
+    if (m.bump) o.bump = SRC.texture(G.gl, await img(JEDI + 'tex/' + m.bump + '_n.png'));
+    if (m.pieces) { const pm = await img(JEDI + 'm/' + m.pieces); const c = canvas(o.w, o.h), x = ctx2(c); x.imageSmoothingEnabled = false; x.drawImage(pm, 0, 0, o.w, o.h); o.pieceMap = x.getImageData(0, 0, o.w, o.h); }
+    return o;
+  }));
+  const label = (MODELS.find(x => x.name === name) || {}).label || name;
+  const bg = {}; const hb = meta.bodyparts.findIndex(b => b.name === 'head'); if (name === 'jedi_initiate_alien' && hb >= 0) bg[hb] = 8;
+  setModel({ name, label: label + (meta.gender && meta.gender !== 'Character' ? ' ' + meta.gender.toLowerCase() : ''), meta, mats, draws: meta.draws, bg,
+    mesh: SRC.mesh(G.gl, new Float32Array(ab, 0, meta.nverts * 8), new Uint32Array(ab, meta.nverts * 32, meta.nidx)), height: meta.height, center: meta.center });
+}
+// .obj: positions, UVs, normals, faces (any polygon), usemtl groups -> materials. Y-up turned to Source's Z-up.
+function parseOBJ(text, name) {
+  const P = [], UV = [], N = [], groups = new Map(); let cur = null;
+  const group = n => { if (!groups.has(n)) groups.set(n, []); return groups.get(n); };
+  cur = group('default');
+  for (const line of text.split(/\r?\n/)) {
+    const t = line.trim().split(/\s+/);
+    if (t[0] === 'v') P.push([+t[1], -(+t[3]), +t[2]]);
+    else if (t[0] === 'vt') UV.push([+t[1], 1 - (+t[2] || 0)]);
+    else if (t[0] === 'vn') N.push([+t[1], -(+t[3]), +t[2]]);
+    else if (t[0] === 'usemtl') cur = group(t.slice(1).join(' ') || 'default');
+    else if (t[0] === 'f') {
+      const vs = t.slice(1).map(s => s.split('/').map(x => x ? parseInt(x, 10) : 0));
+      const fix = (i, len) => i < 0 ? len + i : i - 1;
+      const corner = c => [fix(c[0], P.length), c[1] ? fix(c[1], UV.length) : -1, c[2] ? fix(c[2], N.length) : -1];
+      for (let i = 1; i + 1 < vs.length; i++) cur.push(corner(vs[0]), corner(vs[i]), corner(vs[i + 1]));
+    }
+  }
+  if (!P.length) throw new Error('no vertices in that file');
+  const verts = [], idx = [], draws = [], mats = [], keyOf = new Map();
+  for (const [g, corners] of groups) {
+    if (!corners.length) continue;
+    const start = idx.length;
+    for (let i = 0; i < corners.length; i += 3) {
+      const tri = corners.slice(i, i + 3), ps = tri.map(c => P[c[0]]);
+      const fn = v3.norm(v3.cross(v3.sub(ps[1], ps[0]), v3.sub(ps[2], ps[0])));
+      for (const c of tri) {
+        const k = c.join('/') + (c[2] < 0 ? '|' + fn.map(v => v.toFixed(2)).join() : '') + '|' + mats.length;
+        let vi = keyOf.get(k);
+        if (vi === undefined) {
+          vi = verts.length / 8; keyOf.set(k, vi);
+          const p = P[c[0]], uv = c[1] >= 0 ? UV[c[1]] : [0, 0], n = c[2] >= 0 ? N[c[2]] : fn;
+          verts.push(p[0], p[1], p[2], n[0], n[1], n[2], uv[0], uv[1]);
+        }
+        idx.push(vi);
+      }
+    }
+    draws.push({ mat: mats.length, start, count: idx.length - start });
+    mats.push(makeMat(g, null, { look: vmtLook({ phong: true, phongboost: 0.6, phongexponent: 12 }) }));
+  }
+  let lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
+  for (let i = 0; i < verts.length; i += 8) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], verts[i + k]); hi[k] = Math.max(hi[k], verts[i + k]); }
+  const vv = new Float32Array(verts), ii = new Uint32Array(idx);
+  return { name, label: name, mats, draws, mesh: SRC.mesh(G.gl, vv, ii), height: Math.max(hi[2] - lo[2], hi[0] - lo[0], hi[1] - lo[1]), center: lo.map((v, k) => (v + hi[k]) / 2), bg: {} };
+}
+function setModel(m) {
+  if (MODEL) { G.gl.deleteBuffer(MODEL.mesh.vb); G.gl.deleteBuffer(MODEL.mesh.ib); for (const x of MODEL.mats) { if (x.tex) G.gl.deleteTexture(x.tex); if (x.bump) G.gl.deleteTexture(x.bump); } }
+  MODEL = m; G.dist = m.height * 1.6; G.pan = [0, 0, 0]; G.yaw = 0.35; G.pitch = 0.12;
+  $('loading').hidden = true;
+  buildBodygroups(); buildMats();
+  const first = shownDraws().map(d => m.mats[d.mat]).find(x => x.meta ? x.meta.kind === 'outfit' : true) || m.mats[shownDraws()[0].mat];
+  selectMat(first);
+}
+function buildBodygroups() {
+  const P = $('bodygroups'); P.innerHTML = '';
+  if (!MODEL.meta) return;
+  MODEL.meta.bodyparts.forEach((b, i) => {
+    const real = b.choices.map((c, k) => [k, c]).filter(([k]) => MODEL.draws.some(d => d.bp === i && d.choice === k) || b.choices.length > 1);
+    if (real.length < 2) return;
+    const s = document.createElement('select'); s.style.marginTop = '6px'; s.setAttribute('aria-label', nice(b.name));
+    real.forEach(([k, c]) => s.add(new Option(nice(b.name) + ': ' + (c ? nice(c.replace(/^(head|jedi)_/, '')) : 'none'), k)));
+    s.value = MODEL.bg[i] || 0; s.onchange = () => { MODEL.bg[i] = +s.value; buildMats(); };
+    P.appendChild(s);
+  });
+}
+
+// ---------------------------------------------------------------- export
+function download(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); }
+const fileBase = () => (MODEL.name + '_' + active.name).replace(/[^a-z0-9_-]+/gi, '_').toLowerCase();
+function compOf(m) { if (m.dirty) composite(m); return m.comp; }
+// a VTF with mipmaps: DXT1 when opaque, RGBA8888 when it has see-through parts (alpha kept exactly)
+function vtfOf(c, square) {
+  let w = c.width, h = c.height;
+  if (square) { const n = clamp(Math.max(w, h), 256, 1024); w = h = n; }
+  const levels = [], alpha = alphaOf(c), fmt = alpha ? 0 : 13;
+  for (let l = 0; ; l++) {
+    const lw = Math.max(1, w >> l), lh = Math.max(1, h >> l), t = canvas(lw, lh), x = ctx2(t); x.imageSmoothingQuality = 'high'; x.drawImage(c, 0, 0, lw, lh);
+    const px = x.getImageData(0, 0, lw, lh).data;
+    if (alpha) levels.push(new Uint8Array(px));
+    else {
+      const rgb = new Uint8Array(lw * lh * 3); for (let i = 0; i < lw * lh; i++) { rgb[i * 3] = px[i * 4]; rgb[i * 3 + 1] = px[i * 4 + 1]; rgb[i * 3 + 2] = px[i * 4 + 2]; }
+      levels.push(encodeDXT1(rgb, lw, lh));
+    }
+    if (lw === 1 && lh === 1) break;
+  }
+  const hdr = new ArrayBuffer(80), dv = new DataView(hdr);
+  [86, 84, 70, 0].forEach((ch, i) => dv.setUint8(i, ch));
+  dv.setUint32(4, 7, true); dv.setUint32(8, 2, true); dv.setUint32(12, 80, true); dv.setUint16(16, w, true); dv.setUint16(18, h, true);
+  dv.setUint32(20, alpha ? 0x2000 : 0, true); dv.setUint16(24, 1, true); dv.setFloat32(32, 0.5, true); dv.setFloat32(36, 0.5, true); dv.setFloat32(40, 0.5, true); dv.setFloat32(48, 1.0, true);
+  dv.setUint32(52, fmt, true); dv.setUint8(56, levels.length); dv.setUint32(57, 0xFFFFFFFF, true); dv.setUint16(63, 1, true);
+  return new Blob([new Uint8Array(hdr), ...levels.reverse()], { type: 'application/octet-stream' });
+}
+async function upload(blob) {
+  const r = await fetch(UPLOAD_URL, { method: 'POST', body: blob, headers: { 'content-type': 'application/octet-stream' } });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || !j.url) throw new Error(j.error || 'upload service answered ' + r.status);
+  return j.url;
+}
+const uid = () => Array.from(crypto.getRandomValues(new Uint8Array(20)), b => b.toString(16).padStart(2, '0')).join('');
+const vec = a => ({ lua: `Vector(${a.join(', ')})` });
+function lua(v, ind) {
+  const t = '\t'.repeat(ind);
+  if (v && v.lua) return v.lua;
+  if (typeof v === 'string') return JSON.stringify(v);
+  if (typeof v === 'number') return Number.isInteger(v) ? v + '.0' : String(v);
+  if (typeof v === 'boolean') return String(v);
+  const keys = Array.isArray(v) ? v.map((_, i) => i) : Object.keys(v);
+  return '{\n' + keys.map(k => `${t}\t[${Array.isArray(v) ? k + 1 : JSON.stringify(k)}] = ${lua(v[k], ind + 1)},\n`).join('') + t + '}';
+}
+const part = (cls, name, props, kids = []) => ({ self: Object.assign({ ClassName: cls, Name: name, UniqueID: uid() }, props), children: kids });
+function matPart(m, url) {   // rebuilds the game material from its .vmt settings, with the painted texture
+  const meta = m.meta, v = meta.vmt || {}, p = { MaterialOverride: meta.name, basetexture: url, model: true, halflambert: v.halflambert !== false };
+  if (meta.bm) p.bumpmap = meta.bm;
+  for (const k of ['phong', 'phongalbedotint', 'rimlight', 'translucent', 'alphatest', 'nocull']) if (v[k]) p[k] = true;
+  for (const k of ['phongboost', 'phongexponent', 'rimlightboost', 'rimlightexponent']) if (v[k] !== undefined) p[k] = v[k];
+  if (v.phongexponenttexture) p.phongexponenttexture = v.phongexponenttexture;
+  for (const k of ['color2', 'phongfresnelranges']) if (v[k]) p[k] = vec(v[k]);
+  return part('material_3d', 'painted ' + meta.name, p);
+}
+$('btnPng').onclick = () => { if (!active) return; compOf(active).toBlob(b => download(b, fileBase() + '.png')); flash('Saved ' + fileBase() + '.png'); };
+$('btnVtf').onclick = () => { if (!active) return; download(vtfOf(compOf(active), false), fileBase() + '.vtf'); flash('Saved ' + fileBase() + '.vtf'); };
+$('btnPac').onclick = async e => {
+  const btn = e.currentTarget;
+  if (!MODEL || !MODEL.meta) { flash('PAC outfits are for the suite models (they need the game\'s own material names). For your own model, export PNG or VTF.'); return; }
+  const todo = MODEL.mats.filter(edited);
+  if (!todo.length) { flash('Nothing painted yet.'); return; }
+  btn.disabled = true;
+  try {
+    const parts = [];
+    for (const [i, m] of todo.entries()) { flash(`Uploading ${m.name} (${i + 1}/${todo.length})…`); parts.push(matPart(m, await upload(vtfOf(compOf(m), true)))); }
+    const mods = MODEL.meta.bodyparts.map((b, i) => b.choices.length > 1 ? `${b.name}=${MODEL.bg[i] || 0};` : '').join('');
+    const outfit = part('group', 'painted ' + MODEL.name, { OwnerName: 'self' }, [part('entity2', MODEL.name, mods ? { ModelModifiers: mods } : {}, parts)]);
+    const text = `[1] = ${lua(outfit, 0)},\n`, out = $('copyOut');
+    try { await navigator.clipboard.writeText(text); out.hidden = true; flash(`Copied a PAC outfit with ${todo.length} painted material${todo.length > 1 ? 's' : ''}. Wear it on ${MODEL.name}.`); }
+    catch (err) { out.value = text; out.hidden = false; out.focus(); out.select(); flash('Press Ctrl+C to copy it (selected below).'); }
+  } catch (err) { flash('Upload failed: ' + err.message + '. Try again.'); }
+  finally { btn.disabled = false; }
+};
+
+// ---------------------------------------------------------------- start
+function loop() {
+  try { draw(); if (active && (active.upload || stroke || !drawUV.t || performance.now() - drawUV.t > 250)) { drawUV(); drawUV.t = performance.now(); } refreshThumbs(); }
+  catch (err) { console.error(err); }
+  requestAnimationFrame(loop);
+}
+(async () => {
+  try {
+    initGL(); initView(); initUV();
+    document.querySelectorAll('[data-tool]').forEach(b => b.onclick = () => setTool(b.dataset.tool)); setTool('brush');
+    const bind = (id, k, f, show) => { const r = $(id), o = $(id + 'Out'); const set = () => { T[k] = f(+r.value); if (o) o.textContent = show(+r.value); }; r.oninput = set; set(); };
+    bind('size', 'size', v => v, v => v); bind('hard', 'hard', v => v / 100, v => v + '%'); bind('flow', 'flow', v => v / 100, v => v + '%');
+    $('color').oninput = e => { T.color = e.target.value; };
+    $('mirror').onchange = e => { T.mirror = e.target.checked; };
+    $('btnImport').onclick = () => $('fileObj').click();
+    $('fileObj').onchange = async e => {
+      const f = e.target.files[0]; e.target.value = ''; if (!f || !confirmLeave()) return;
+      try { setModel(parseOBJ(await f.text(), f.name.replace(/\.obj$/i, ''))); $('modelPick').value = ''; flash(`Imported ${f.name}. Load an image onto each material, or paint from grey.`); }
+      catch (err) { flash('Could not read that model: ' + err.message); }
+    };
+    $('btnLoadImg').onclick = () => active && $('fileImg').click();
+    $('fileImg').onchange = async e => {
+      const f = e.target.files[0]; e.target.value = ''; if (!f || !active) return;
+      try {
+        let src;
+        if (/\.vtf$/i.test(f.name)) { const id = SRC.decodeVTF(await f.arrayBuffer()), c = canvas(id.width, id.height); ctx2(c).putImageData(id, 0, 0); src = c; }
+        else src = await createImageBitmap(f);
+        const b = active.layers[0].canvas, x = ctx2(b); x.clearRect(0, 0, b.width, b.height); x.drawImage(src, 0, 0, b.width, b.height);
+        active.replaced = true; active.hasAlpha = alphaOf(b); active.dirty = true; active.layers[0].thumbDirty = true; buildLayers(); markEdited();
+        flash(`${f.name} is now the base of ${active.name}.`);
+      } catch (err) { flash('Could not read that image: ' + err.message); }
+    };
+    $('addPaint').onclick = () => active && newLayer(active, 'paint');
+    $('addFill').onclick = () => active && newLayer(active, 'fill');
+    MODELS = await fetch(JEDI + 'models.json').then(r => r.json());
+    const pick = $('modelPick'); pick.add(new Option('(your imported model)', ''));
+    const og = (label, list) => { const g = document.createElement('optgroup'); g.label = label; list.forEach(m => g.appendChild(new Option(m.gender === 'Character' ? m.label : `${m.label} (${m.gender.toLowerCase()})`, m.name))); pick.appendChild(g); };
+    og('Jedi classes', MODELS.filter(m => m.gender !== 'Character')); og('Jedi characters', MODELS.filter(m => m.gender === 'Character'));
+    pick.options[0].disabled = true;
+    pick.onchange = async () => {
+      if (!pick.value) return;
+      if (!confirmLeave()) { pick.value = MODEL.name; return; }
+      try { await loadJedi(pick.value); flash(''); } catch (err) { flash('Could not load that model: ' + err.message); }
+    };
+    pick.value = 'jedi_initiate_alien';
+    requestAnimationFrame(loop);
+    await loadJedi('jedi_initiate_alien');
+    flash('Pick a material and paint on the model. "Recolour a piece" makes a fill layer for one clothing piece.');
+  } catch (err) { flash('Could not start the painter: ' + err.message); }
+})();
+addEventListener('beforeunload', e => { if (MODEL && MODEL.mats.some(edited)) { e.preventDefault(); e.returnValue = ''; } });
+window.__painter = { T, G, model: () => MODEL, active: () => active, pickAt, newLayer, composite };
+</script>
+</body>
+</html>

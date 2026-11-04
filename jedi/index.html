@@ -21,6 +21,7 @@
   .hint { position: absolute; left: 12px; bottom: 10px; color: var(--muted); font-size: 12px; }
   .viewtools { position: absolute; right: 10px; top: 10px; display: flex; gap: 6px; }
   .loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); pointer-events: none; }
+  .loading[hidden], .card[hidden] { display: none; }
   .side { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
   .card h2 { margin: 0 0 10px; font-size: 14px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .6px; }
@@ -55,7 +56,7 @@
 </style>
 </head>
 <body>
-<header><h1>PAC 3 Suite</h1><nav class="suitenav" aria-label="PAC 3 Suite tools"><a href="../">Visor Editor</a><a href="./" class="on" aria-current="page">Jedi Editor</a></nav><span class="sub" id="sub"></span></header>
+<header><h1>PAC 3 Suite</h1><nav class="suitenav" aria-label="PAC 3 Suite tools"><a href="../">Visor Editor</a><a href="./" class="on" aria-current="page">Jedi Editor</a><a href="../painter/">Texture Painter</a></nav><span class="sub" id="sub"></span></header>
 <div class="app">
   <div class="view"><canvas id="gl"></canvas><div class="loading" id="loading">Loading…</div>
     <div class="viewtools"><select id="rig" aria-label="Lighting"><option value="day">Lit area</option><option value="night">Dark area</option></select></div>
@@ -764,7 +765,8 @@ const dirtyAll = () => M && M.mats.forEach(o => dirty.add(o.slot));
 function loop(ms) {
   try {
     if (M) for (const slot of dirty) {
-      const o = M.mats[slot], p = o.px ? previewPaint(o) : null;
+      const o = M.mats[slot]; if (!o) continue;   // left over from the previous model
+      const p = o.px ? previewPaint(o) : null;
       if (p) { if (!o.view) o.view = SRC.texture(G.gl, p); else SRC.upload(G.gl, o.view, p); } else if (o.view) { G.gl.deleteTexture(o.view); o.view = null; }
     }
     dirty.clear();

@@ -1197,8 +1197,8 @@ function tick() {
 // ---------------------------------------------------------------- Source-style model shading (shared by the PAC 3 Suite tools)
 // A WebGL1 version of Source's VertexLitGeneric (the shader player models use), following its pixel shader: lighting
 // in linear space from an ambient cube plus directional lights, $halflambert (wrapped and squared), $bumpmap in tangent
-// space with the phong mask in its alpha, $phong with $phongexponent / $phongboost / $phongfresnelranges /
-// $phongalbedotint, $rimlight, $selfillum with a mask, $color2, and $detail blend modes 1 (added before lighting) and 5
+// space with the phong mask in its alpha, $phong with $phongexponent / $phongexponenttexture (R: exponent 1 + 149 R,
+// G: albedo tint mask) / $phongboost / $phongfresnelranges / $phongtint / $phongalbedotint, $rimlight, $selfillum with a mask, $color2, and $detail blend modes 1 (added before lighting) and 5
 // (added after lighting). Models are Z-up. Exposes SRC.
 const SRC = (() => {
   const VS = `attribute vec3 aP; attribute vec3 aN; attribute vec2 aUV; attribute vec4 aT;
@@ -1207,11 +1207,11 @@ varying vec3 vPos, vN; varying vec4 vT; varying vec2 vUV;
 void main() { vPos = aP; vN = aN; vT = aT; vUV = aUV; gl_Position = uMVP * vec4(aP, 1.0); }`;
   const FS = `precision highp float;
 varying vec3 vPos, vN; varying vec4 vT; varying vec2 vUV;
-uniform sampler2D uBase, uBump, uSelf, uDet, uExtra;
+uniform sampler2D uBase, uBump, uSelf, uDet, uExtra, uExp;
 uniform vec3 uEye, uAmb[6], uLDir[2], uLCol[2];
-uniform vec3 uColor2, uFresnel, uSelfTint;
+uniform vec3 uColor2, uFresnel, uSelfTint, uPhongTint;
 uniform float uHalfLambert, uHasBump, uPhong, uPhongBoost, uPhongExp, uAlbedoTint, uRim, uRimBoost, uRimExp, uSelfIllum;
-uniform float uMaskNoBump, uDetMode, uDetFactor, uExtraMode, uExtraAmt, uAlphaMode;
+uniform float uHasExp, uTintMode, uMaskNoBump, uDetMode, uDetFactor, uExtraMode, uExtraAmt, uAlphaMode;
 uniform vec4 uDetRect, uExtraCol;
 vec3 ambient(vec3 n) { vec3 s = n * n;   // Source's ambient cube: six colours blended by the squared normal
   return s.x * (n.x > 0.0 ? uAmb[0] : uAmb[1]) + s.y * (n.y > 0.0 ? uAmb[2] : uAmb[3]) + s.z * (n.z > 0.0 ? uAmb[4] : uAmb[5]); }
@@ -1231,49 +1231,54 @@ void main() {
   vec3 det = inDet ? lin(texture2D(uDet, dc).rgb) * uDetFactor : vec3(0.0);
   if (uDetMode > 0.5 && uDetMode < 1.5) alb += det;   // mode 1: added to the paint, then lit
   vec3 n = normalize(vN); if (!gl_FrontFacing) n = -n;
-  float mask = uMaskNoBump;
+  float mask = uMaskNoBump >= 0.0 ? uMaskNoBump : base.a;   // Source without a bump map: the base alpha masks phong
   if (uHasBump > 0.5) {   // tangent-space normal map; its alpha is the phong mask
     vec4 nm = texture2D(uBump, vUV);
     vec3 t = normalize(vT.xyz - n * dot(n, vT.xyz)), b = cross(n, t) * vT.w, tn = nm.xyz * 2.0 - 1.0;
     n = normalize(t * tn.x + b * tn.y + n * tn.z); mask = nm.a;
   }
   vec3 v = normalize(uEye - vPos), r = 2.0 * n * dot(n, v) - v;
+  // as Source's skin shader: a set $phongexponent wins, else the exponent texture's red as 1 + 149 R (no texture binds
+  // white: 150); its green blends the specular tint towards the paint for $phongalbedotint; $phongtint overrides that
+  vec4 ex = uHasExp > 0.5 ? texture2D(uExp, vUV) : vec4(1.0);
+  float pexp = uPhongExp > 0.0 ? uPhongExp : 1.0 + 149.0 * ex.r;
   vec3 diff = ambient(n), spec = vec3(0.0), rim = vec3(0.0);
   for (int i = 0; i < 2; i++) {
     float nl = dot(n, uLDir[i]);
     diff += uLCol[i] * (uHalfLambert > 0.5 ? pow(clamp(nl * 0.5 + 0.5, 0.0, 1.0), 2.0) : clamp(nl, 0.0, 1.0));
     float lr = clamp(dot(r, uLDir[i]), 0.0, 1.0), m = clamp(nl, 0.0, 1.0);
-    spec += uLCol[i] * pow(lr, uPhongExp) * m; rim += uLCol[i] * pow(lr, uRimExp) * m;
+    spec += uLCol[i] * pow(lr, pexp) * m; rim += uLCol[i] * pow(lr, max(uRimExp, 1.0)) * m;   // Source clamps the rim exponent to >= 1
   }
   if (uSelfIllum > 0.5) diff = mix(diff, uSelfTint, texture2D(uSelf, vUV).r);   // self-illum: lit as if by its tint
   vec3 col = alb * diff;
   if (uPhong > 0.5) {
-    spec *= mask * uPhongBoost * fresnelRanges(n, v) * mix(vec3(1.0), alb, uAlbedoTint);
-    if (uRim > 0.5) {
+    spec *= mask * uPhongBoost * fresnelRanges(n, v);
+    if (uRim > 0.5) {   // rim: lights through Fresnel^4 folded in by max, plus the ambient cube seen along the view
       float rf = pow(1.0 - clamp(dot(n, v), 0.0, 1.0), 4.0);
-      spec = max(spec, rim * rf * uRimBoost);
-      spec += rf * uRimBoost * ambient(v) * clamp(n.z, 0.0, 1.0);
+      spec = max(spec, rim * rf);
+      spec += ambient(v) * uRimBoost * clamp(rf * n.z, 0.0, 1.0);
     }
-    col += spec;
+    vec3 tint = uTintMode > 1.5 ? mix(vec3(1.0), lin(base.rgb), ex.g) : uTintMode > 0.5 ? uPhongTint : vec3(1.0);
+    col += spec * tint;   // the tint applies to the rim too
   }
   if (uDetMode > 4.5) col += det;   // mode 5: added after lighting (glows)
   col = col / (1.0 + max(max(col.r, col.g), col.b) * 0.12);   // soft highlight roll-off instead of a hard clip
   gl_FragColor = vec4(pow(clamp(col, 0.0, 1.0), vec3(1.0 / 2.2)), uAlphaMode > 1.5 ? base.a : 1.0);   // $translucent
 }`;
 
-  // lighting rigs: ambient cube (+x -x +y -y +z -z, linear) and two directional lights given relative to the camera
+  // lighting rigs (the key light comes from above and to the side, like a map's sun or ceiling light): ambient cube (+x -x +y -y +z -z, linear) and two directional lights given relative to the camera
   // (key from the upper right of the view, fill from the lower left), like the model viewer
   const RIGS = {
     day: { amb: [[0.16, 0.17, 0.19], [0.16, 0.17, 0.19], [0.17, 0.18, 0.2], [0.15, 0.16, 0.18], [0.3, 0.33, 0.4], [0.09, 0.08, 0.07]],
-      key: [[0.45, 0.55, 0.75], [1.35, 1.27, 1.12]], fill: [[-0.6, -0.2, 0.3], [0.16, 0.18, 0.24]] },
+      key: [[0.5, 0.8, 0.35], [1.35, 1.27, 1.12]], fill: [[-0.6, -0.2, 0.3], [0.16, 0.18, 0.24]] },
     night: { amb: [[0.012, 0.014, 0.02], [0.012, 0.014, 0.02], [0.012, 0.014, 0.02], [0.012, 0.014, 0.02], [0.025, 0.03, 0.045], [0.004, 0.004, 0.005]],
-      key: [[0.45, 0.55, 0.75], [0.05, 0.055, 0.07]], fill: [[-0.6, -0.2, 0.3], [0.01, 0.012, 0.02]] },
+      key: [[0.5, 0.8, 0.35], [0.05, 0.055, 0.07]], fill: [[-0.6, -0.2, 0.3], [0.01, 0.012, 0.02]] },
   };
 
   // materials take Source's own names and defaults (VertexLitGeneric)
-  const DEFAULT = { color2: [1, 1, 1], halflambert: true, phong: false, phongboost: 1, phongexponent: 5, phongfresnelranges: [0, 0.5, 1],
+  const DEFAULT = { color2: [1, 1, 1], halflambert: true, phong: false, phongboost: 1, phongfresnelranges: [0, 0.5, 1], phongtint: [1, 1, 1],
     phongalbedotint: false, rimlight: false, rimlightboost: 1, rimlightexponent: 4, selfillum: false, selfillumtint: [1, 1, 1],
-    detailblendmode: 0, detailblendfactor: 1, detailrect: [0, 0, 1, 1], maskNoBump: 1, alphaMode: 0 };
+    detailblendmode: 0, detailblendfactor: 1, detailrect: [0, 0, 1, 1], maskNoBump: -1, alphaMode: 0 };
 
   function program(gl) {
     const sh = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; };
@@ -1282,7 +1287,7 @@ void main() {
     const cache = {}, U = n => n in cache ? cache[n] : (cache[n] = gl.getUniformLocation(p, n));
     const R = { gl, prog: p, U, blank: null };
     gl.useProgram(p);
-    ['uBase', 'uBump', 'uSelf', 'uDet', 'uExtra'].forEach((n, i) => gl.uniform1i(U(n), i));
+    ['uBase', 'uBump', 'uSelf', 'uDet', 'uExtra', 'uExp'].forEach((n, i) => gl.uniform1i(U(n), i));
     R.blank = texture(gl, new ImageData(new Uint8ClampedArray([128, 128, 255, 255]), 1, 1), {});   // flat normal, also a harmless filler
     return R;
   }
@@ -1352,10 +1357,11 @@ void main() {
     const { gl, U } = R, M = Object.assign({}, DEFAULT, mat);
     gl.bindBuffer(gl.ARRAY_BUFFER, m.vb); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, m.ib);
     [['aP', 3, 0], ['aN', 3, 12], ['aUV', 2, 24], ['aT', 4, 32]].forEach(([n, s, o]) => { const l = gl.getAttribLocation(R.prog, n); if (l < 0) return; gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, s, gl.FLOAT, false, 48, o); });
-    [tex.base, tex.bump, tex.self, tex.detail, tex.extra].forEach((t, i) => { gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, t || R.blank); });
+    [tex.base, tex.bump, tex.self, tex.detail, tex.extra, tex.exp].forEach((t, i) => { gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, t || R.blank); });
     gl.uniform3fv(U('uColor2'), M.color2); gl.uniform3fv(U('uFresnel'), M.phongfresnelranges); gl.uniform3fv(U('uSelfTint'), M.selfillumtint);
     gl.uniform1f(U('uHalfLambert'), M.halflambert ? 1 : 0); gl.uniform1f(U('uHasBump'), tex.bump ? 1 : 0); gl.uniform1f(U('uMaskNoBump'), M.maskNoBump);
-    gl.uniform1f(U('uPhong'), M.phong ? 1 : 0); gl.uniform1f(U('uPhongBoost'), M.phongboost); gl.uniform1f(U('uPhongExp'), M.phongexponent);
+    gl.uniform1f(U('uPhong'), M.phong ? 1 : 0); gl.uniform1f(U('uPhongBoost'), M.phongboost); gl.uniform1f(U('uPhongExp'), M.phongexponent || 0); gl.uniform1f(U('uHasExp'), tex.exp ? 1 : 0); gl.uniform3fv(U('uPhongTint'), M.phongtint);
+    gl.uniform1f(U('uTintMode'), mat.phongtint ? 1 : tex.exp && M.phongalbedotint ? 2 : 0);
     gl.uniform1f(U('uAlbedoTint'), M.phongalbedotint ? 1 : 0); gl.uniform1f(U('uRim'), M.rimlight ? 1 : 0);
     gl.uniform1f(U('uRimBoost'), M.rimlightboost); gl.uniform1f(U('uRimExp'), M.rimlightexponent);
     gl.uniform1f(U('uSelfIllum'), M.selfillum && tex.self ? 1 : 0); gl.uniform1f(U('uAlphaMode'), M.alphaMode);
@@ -1411,8 +1417,9 @@ void main() {
       if (f === 'DXT5') {
         const a0 = src[o], a1 = src[o + 1], ap = [a0, a1];
         if (a0 > a1) for (let k = 1; k < 7; k++) ap.push(((7 - k) * a0 + k * a1) / 7); else { for (let k = 1; k < 5; k++) ap.push(((5 - k) * a0 + k * a1) / 5); ap.push(0, 255); }
-        alpha = []; let ab = 0n; for (let k = 0; k < 6; k++) ab |= BigInt(src[o + 2 + k]) << BigInt(8 * k);
-        for (let k = 0; k < 16; k++) alpha.push(ap[Number((ab >> BigInt(3 * k)) & 7n)]);
+        alpha = [];   // 48 bits of 3-bit indices, read as two 24-bit halves
+        const lo = src[o + 2] | (src[o + 3] << 8) | (src[o + 4] << 16), hi = src[o + 5] | (src[o + 6] << 8) | (src[o + 7] << 16);
+        for (let k = 0; k < 16; k++) alpha.push(ap[k < 8 ? (lo >> (3 * k)) & 7 : (hi >> (3 * (k - 8))) & 7]);
       } else if (f === 'DXT3') { alpha = []; for (let k = 0; k < 16; k++) alpha.push(((src[o + (k >> 1)] >> ((k & 1) * 4)) & 15) * 17); }
       for (let k = 0; k < 16; k++) {
         const x = bx * 4 + (k & 3), y = by * 4 + (k >> 2); if (x >= w || y >= h) continue;
@@ -1450,6 +1457,8 @@ async function initGL() {
   GLS.detImg = new ImageData(W, H); for (let i = 3; i < GLS.detImg.data.length; i += 4) GLS.detImg.data[i] = 255;
   GLS.det = SRC.texture(gl, GLS.detImg, { mips: false, wrap: false });
   loadHelmetBump();   // the helmet's normal map arrives a moment later
+  // the phong exponent texture the outfit uses ($phongexponenttexture wgcwrp/shared/plain_exp), copied from the game
+  SRC.loadVTF('jedi/vtf/76819de16afa.vtf').then(d => { GLS.exp = SRC.texture(gl, d); }).catch(() => {});
   gl.enable(gl.DEPTH_TEST);
   const D = G.D[512], ml = []; for (let i = 0; i < D.mask.length; i++) if (D.mask[i] > 0) ml.push(i);
   GLS.ml = Int32Array.from(ml);
@@ -1554,7 +1563,7 @@ function drawGL(t, factor, rimTint, key) {
     color2: vmt.color2 || [0.9, 0.9, 0.9], phong: true, phongboost: vmt.phongboost ?? 1.7, phongexponent: vmt.phongexponent ?? 15,
     phongfresnelranges: vmt.phongfresnelranges || [0.5, 0.5, 0], phongalbedotint: true,
     selfillum: true, selfillumtint: rimTint, detailblendmode: 5, detailblendfactor: factor, detailrect: [u0, v0, u1 - u0, v1 - v0],
-  }, { base: GLS.baseTex, bump: GLS.bump, self: GLS.rimTex, detail: GLS.det });
+  }, { base: GLS.baseTex, bump: GLS.bump, exp: GLS.exp, self: GLS.rimTex, detail: GLS.det });
 }
 
 // ---------------------------------------------------------------- GIF preview

@@ -1,0 +1,227 @@
+[
+ {
+  "name": "jedi_ace_m",
+  "label": "Ace",
+  "gender": "Male"
+ },
+ {
+  "name": "jedi_ace_f",
+  "label": "Ace",
+  "gender": "Female"
+ },
+ {
+  "name": "jedi_ace_alien",
+  "label": "Ace",
+  "gender": "Alien"
+ },
+ {
+  "name": "jedi_apprentice_m",
+  "label": "Apprentice",
+  "gender": "Male"
+ },
+ {
+  "name": "jedi_apprentice_f",
+  "label": "Apprentice",
+  "gender": "Female"
+ },
+ {
+  "name": "jedi_apprentice_alien",
+  "label": "Apprentice",
+  "gender": "Alien"
+ },
+ {
+  "name": "jedi_consular_m",
+  "label": "Consular",
+  "gender": "Male"
+ },
+ {
+  "name": "jedi_consular_f",
+  "label": "Consular",
+  "gender": "Female"
+ },
+ {
+  "name": "jedi_consular_alien",
+  "label": "Consular",
+  "gender": "Alien"
+ },
+ {
+  "name": "jedi_forcemaster_m",
+  "label": "Forcemaster",
+  "gender": "Male"
+ },
+ {
+  "name": "jedi_forcemaster_f",
+  "label": "Forcemaster",
+  "gender": "Female"
+ },
+ {
+  "name": "jedi_forcemaster_alien",
+  "label": "Forcemaster",
+  "gender": "Alien"
+ },
+ {
+  "name": "jedi_guardian_m",
+  "label": "Guardian",
+  "gender": "Male"
+ },
+ {
+  "name": "jedi_guardian_f",
+  "label": "Guardian",
+  "gender": "Female"
+ },
+ {
+  "name": "jedi_guardian_alien",
+  "label": "Guardian",
+  "gender": "Alien"
+ },
+ {
+  "name": "jedi_initiate_m",
+  "label": "Initiate",
+  "gender": "Male"
+ },
+ {
+  "name": "jedi_initiate_f",
+  "label": "Initiate",
+  "gender": "Female"
+ },
+ {
+  "name": "jedi_initiate_alien",
+  "label": "Initiate",
+  "gender": "Alien"
+ },
+ {
+  "name": "jedi_knight_m",
+  "label": "Knight",
+  "gender": "Male"
+ },
+ {
+  "name": "jedi_knight_f",
+  "label": "Knight",
+  "gender": "Female"
+ },
+ {
+  "name": "jedi_knight_alien",
+  "label": "Knight",
+  "gender": "Alien"
+ },
+ {
+  "name": "jedi_master_m",
+  "label": "Master",
+  "gender": "Male"
+ },
+ {
+  "name": "jedi_master_f",
+  "label": "Master",
+  "gender": "Female"
+ },
+ {
+  "name": "jedi_master_alien",
+  "label": "Master",
+  "gender": "Alien"
+ },
+ {
+  "name": "jedi_padawan_m",
+  "label": "Padawan",
+  "gender": "Male"
+ },
+ {
+  "name": "jedi_padawan_f",
+  "label": "Padawan",
+  "gender": "Female"
+ },
+ {
+  "name": "jedi_padawan_alien",
+  "label": "Padawan",
+  "gender": "Alien"
+ },
+ {
+  "name": "jedi_paladin_m",
+  "label": "Paladin",
+  "gender": "Male"
+ },
+ {
+  "name": "jedi_paladin_f",
+  "label": "Paladin",
+  "gender": "Female"
+ },
+ {
+  "name": "jedi_paladin_alien",
+  "label": "Paladin",
+  "gender": "Alien"
+ },
+ {
+  "name": "jedi_paragon_m",
+  "label": "Paragon",
+  "gender": "Male"
+ },
+ {
+  "name": "jedi_paragon_f",
+  "label": "Paragon",
+  "gender": "Female"
+ },
+ {
+  "name": "jedi_paragon_alien",
+  "label": "Paragon",
+  "gender": "Alien"
+ },
+ {
+  "name": "jedi_sage_m",
+  "label": "Sage",
+  "gender": "Male"
+ },
+ {
+  "name": "jedi_sage_f",
+  "label": "Sage",
+  "gender": "Female"
+ },
+ {
+  "name": "jedi_sage_alien",
+  "label": "Sage",
+  "gender": "Alien"
+ },
+ {
+  "name": "jedi_warlock_m",
+  "label": "Warlock",
+  "gender": "Male"
+ },
+ {
+  "name": "jedi_warlock_f",
+  "label": "Warlock",
+  "gender": "Female"
+ },
+ {
+  "name": "jedi_warlock_alien",
+  "label": "Warlock",
+  "gender": "Alien"
+ },
+ {
+  "name": "anakin_skywalker",
+  "label": "Anakin Skywalker",
+  "gender": "Character"
+ },
+ {
+  "name": "mace_windu",
+  "label": "Mace Windu",
+  "gender": "Character"
+ },
+ {
+  "name": "obiwan_kenobi",
+  "label": "Obi-Wan Kenobi",
+  "gender": "Character"
+ },
+ {
+  "name": "plo_koon",
+  "label": "Plo Koon",
+  "gender": "Character"
+ },
+ {
+  "name": "yoda",
+  "label": "Yoda",
+  "gender": "Character"
+ },
+ {
+  "name": "jedi_youngling",
+  "label": "Youngling",
+  "gender": "Character"
+ }
+]

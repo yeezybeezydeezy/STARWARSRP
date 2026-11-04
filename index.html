@@ -1194,22 +1194,239 @@ function tick() {
 }
 
 // ---------------------------------------------------------------- 3D viewer (WebGL, no libraries)
-const VS = `attribute vec3 aP; attribute vec3 aN; attribute vec2 aUV; uniform mat4 uMVP;
-varying vec3 vN; varying vec2 vUV;
-void main() { vN = aN; vUV = aUV; gl_Position = uMVP * vec4(aP, 1.0); }`;
-const FS = `precision highp float;
-varying vec3 vN; varying vec2 vUV;
-uniform sampler2D uBase, uRim, uDet; uniform vec3 uLight, uRimTint; uniform float uAmb, uDiff, uFactor; uniform vec4 uReg;
+// ---------------------------------------------------------------- Source-style model shading (shared by the PAC 3 Suite tools)
+// A WebGL1 version of Source's VertexLitGeneric (the shader player models use), following its pixel shader: lighting
+// in linear space from an ambient cube plus directional lights, $halflambert (wrapped and squared), $bumpmap in tangent
+// space with the phong mask in its alpha, $phong with $phongexponent / $phongboost / $phongfresnelranges /
+// $phongalbedotint, $rimlight, $selfillum with a mask, $color2, and $detail blend modes 1 (added before lighting) and 5
+// (added after lighting). Models are Z-up. Exposes SRC.
+const SRC = (() => {
+  const VS = `attribute vec3 aP; attribute vec3 aN; attribute vec2 aUV; attribute vec4 aT;
+uniform mat4 uMVP;
+varying vec3 vPos, vN; varying vec4 vT; varying vec2 vUV;
+void main() { vPos = aP; vN = aN; vT = aT; vUV = aUV; gl_Position = uMVP * vec4(aP, 1.0); }`;
+  const FS = `precision highp float;
+varying vec3 vPos, vN; varying vec4 vT; varying vec2 vUV;
+uniform sampler2D uBase, uBump, uSelf, uDet, uExtra;
+uniform vec3 uEye, uAmb[6], uLDir[2], uLCol[2];
+uniform vec3 uColor2, uFresnel, uSelfTint;
+uniform float uHalfLambert, uHasBump, uPhong, uPhongBoost, uPhongExp, uAlbedoTint, uRim, uRimBoost, uRimExp, uSelfIllum;
+uniform float uMaskNoBump, uDetMode, uDetFactor, uExtraMode, uExtraAmt, uAlphaMode;
+uniform vec4 uDetRect, uExtraCol;
+vec3 ambient(vec3 n) { vec3 s = n * n;   // Source's ambient cube: six colours blended by the squared normal
+  return s.x * (n.x > 0.0 ? uAmb[0] : uAmb[1]) + s.y * (n.y > 0.0 ? uAmb[2] : uAmb[3]) + s.z * (n.z > 0.0 ? uAmb[4] : uAmb[5]); }
+float fresnelRanges(vec3 n, vec3 v) { float f = 1.0 - clamp(dot(n, v), 0.0, 1.0); f *= f;
+  return f > 0.5 ? mix(uFresnel.y, uFresnel.z, 2.0 * f - 1.0) : mix(uFresnel.x, uFresnel.y, 2.0 * f); }
+vec3 lin(vec3 c) { return pow(max(c, 0.0), vec3(2.2)); }
 void main() {
+  vec4 base = texture2D(uBase, vUV);
+  if (uAlphaMode > 0.5 && uAlphaMode < 1.5 && base.a < 0.5) discard;   // $alphatest
+  vec3 alb = lin(base.rgb) * uColor2;
+  if (uExtraMode > 0.5) {   // tool overlay (e.g. a highlighted clothing piece)
+    float m = texture2D(uExtra, vUV).r * 255.0;
+    if (abs(m - uExtraCol.a) < 0.5) alb = mix(alb, lin(uExtraCol.rgb), uExtraAmt);
+  }
+  vec2 dc = (vUV - uDetRect.xy) / uDetRect.zw;
+  bool inDet = uDetMode > 0.5 && dc.x >= 0.0 && dc.x <= 1.0 && dc.y >= 0.0 && dc.y <= 1.0;
+  vec3 det = inDet ? lin(texture2D(uDet, dc).rgb) * uDetFactor : vec3(0.0);
+  if (uDetMode > 0.5 && uDetMode < 1.5) alb += det;   // mode 1: added to the paint, then lit
   vec3 n = normalize(vN); if (!gl_FrontFacing) n = -n;
-  vec3 alb = texture2D(uBase, vUV).rgb * 0.9;
-  float hl = 0.5 + 0.5 * dot(n, uLight); hl *= hl;                       // half-lambert, like the helmet material
-  vec3 lit = alb * (uAmb + uDiff * hl);
-  lit = mix(lit, alb * uRimTint, texture2D(uRim, vUV).r);               // self-illum rim glow
-  vec2 d = (vUV - uReg.xy) / uReg.zw; vec3 det = vec3(0.0);
-  if (d.x >= 0.0 && d.x <= 1.0 && d.y >= 0.0 && d.y <= 1.0) det = texture2D(uDet, d).rgb;   // animated visor layer
-  gl_FragColor = vec4(min(lit + det * uFactor, vec3(1.0)), 1.0);
+  float mask = uMaskNoBump;
+  if (uHasBump > 0.5) {   // tangent-space normal map; its alpha is the phong mask
+    vec4 nm = texture2D(uBump, vUV);
+    vec3 t = normalize(vT.xyz - n * dot(n, vT.xyz)), b = cross(n, t) * vT.w, tn = nm.xyz * 2.0 - 1.0;
+    n = normalize(t * tn.x + b * tn.y + n * tn.z); mask = nm.a;
+  }
+  vec3 v = normalize(uEye - vPos), r = 2.0 * n * dot(n, v) - v;
+  vec3 diff = ambient(n), spec = vec3(0.0), rim = vec3(0.0);
+  for (int i = 0; i < 2; i++) {
+    float nl = dot(n, uLDir[i]);
+    diff += uLCol[i] * (uHalfLambert > 0.5 ? pow(clamp(nl * 0.5 + 0.5, 0.0, 1.0), 2.0) : clamp(nl, 0.0, 1.0));
+    float lr = clamp(dot(r, uLDir[i]), 0.0, 1.0), m = clamp(nl, 0.0, 1.0);
+    spec += uLCol[i] * pow(lr, uPhongExp) * m; rim += uLCol[i] * pow(lr, uRimExp) * m;
+  }
+  if (uSelfIllum > 0.5) diff = mix(diff, uSelfTint, texture2D(uSelf, vUV).r);   // self-illum: lit as if by its tint
+  vec3 col = alb * diff;
+  if (uPhong > 0.5) {
+    spec *= mask * uPhongBoost * fresnelRanges(n, v) * mix(vec3(1.0), alb, uAlbedoTint);
+    if (uRim > 0.5) {
+      float rf = pow(1.0 - clamp(dot(n, v), 0.0, 1.0), 4.0);
+      spec = max(spec, rim * rf * uRimBoost);
+      spec += rf * uRimBoost * ambient(v) * clamp(n.z, 0.0, 1.0);
+    }
+    col += spec;
+  }
+  if (uDetMode > 4.5) col += det;   // mode 5: added after lighting (glows)
+  col = col / (1.0 + max(max(col.r, col.g), col.b) * 0.12);   // soft highlight roll-off instead of a hard clip
+  gl_FragColor = vec4(pow(clamp(col, 0.0, 1.0), vec3(1.0 / 2.2)), uAlphaMode > 1.5 ? base.a : 1.0);   // $translucent
 }`;
+
+  // lighting rigs: ambient cube (+x -x +y -y +z -z, linear) and two directional lights given relative to the camera
+  // (key from the upper right of the view, fill from the lower left), like the model viewer
+  const RIGS = {
+    day: { amb: [[0.16, 0.17, 0.19], [0.16, 0.17, 0.19], [0.17, 0.18, 0.2], [0.15, 0.16, 0.18], [0.3, 0.33, 0.4], [0.09, 0.08, 0.07]],
+      key: [[0.45, 0.55, 0.75], [1.35, 1.27, 1.12]], fill: [[-0.6, -0.2, 0.3], [0.16, 0.18, 0.24]] },
+    night: { amb: [[0.012, 0.014, 0.02], [0.012, 0.014, 0.02], [0.012, 0.014, 0.02], [0.012, 0.014, 0.02], [0.025, 0.03, 0.045], [0.004, 0.004, 0.005]],
+      key: [[0.45, 0.55, 0.75], [0.05, 0.055, 0.07]], fill: [[-0.6, -0.2, 0.3], [0.01, 0.012, 0.02]] },
+  };
+
+  // materials take Source's own names and defaults (VertexLitGeneric)
+  const DEFAULT = { color2: [1, 1, 1], halflambert: true, phong: false, phongboost: 1, phongexponent: 5, phongfresnelranges: [0, 0.5, 1],
+    phongalbedotint: false, rimlight: false, rimlightboost: 1, rimlightexponent: 4, selfillum: false, selfillumtint: [1, 1, 1],
+    detailblendmode: 0, detailblendfactor: 1, detailrect: [0, 0, 1, 1], maskNoBump: 1, alphaMode: 0 };
+
+  function program(gl) {
+    const sh = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; };
+    const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    const cache = {}, U = n => n in cache ? cache[n] : (cache[n] = gl.getUniformLocation(p, n));
+    const R = { gl, prog: p, U, blank: null };
+    gl.useProgram(p);
+    ['uBase', 'uBump', 'uSelf', 'uDet', 'uExtra'].forEach((n, i) => gl.uniform1i(U(n), i));
+    R.blank = texture(gl, new ImageData(new Uint8ClampedArray([128, 128, 255, 255]), 1, 1), {});   // flat normal, also a harmless filler
+    return R;
+  }
+
+  // per-vertex tangents (Lengyel), +handedness in w; the bitangent follows +v (image down), which is how Source's
+  // normal maps store green
+  function tangents(P, UV, idx) {
+    const nv = P.length / 3, t = new Float32Array(nv * 3), b = new Float32Array(nv * 3), out = new Float32Array(nv * 4);
+    for (let k = 0; k < idx.length; k += 3) {
+      const a = idx[k], c = idx[k + 1], d = idx[k + 2];
+      const e1 = [0, 1, 2].map(j => P[c * 3 + j] - P[a * 3 + j]), e2 = [0, 1, 2].map(j => P[d * 3 + j] - P[a * 3 + j]);
+      const du1 = UV[c * 2] - UV[a * 2], dv1 = UV[c * 2 + 1] - UV[a * 2 + 1], du2 = UV[d * 2] - UV[a * 2], dv2 = UV[d * 2 + 1] - UV[a * 2 + 1];
+      const det = du1 * dv2 - du2 * dv1; if (Math.abs(det) < 1e-12) continue;
+      const r = 1 / det;
+      for (const i of [a, c, d]) for (let j = 0; j < 3; j++) { t[i * 3 + j] += (e1[j] * dv2 - e2[j] * dv1) * r; b[i * 3 + j] += (e2[j] * du1 - e1[j] * du2) * r; }
+    }
+    return { t, b, out };
+  }
+
+  // a mesh from interleaved [P3 N3 UV2] floats and an index array: adds tangents, uploads, ready to draw
+  function mesh(gl, interleaved, idx) {
+    const nv = interleaved.length / 8, P = new Float32Array(nv * 3), N = new Float32Array(nv * 3), UV = new Float32Array(nv * 2);
+    for (let i = 0; i < nv; i++) { for (let j = 0; j < 3; j++) { P[i * 3 + j] = interleaved[i * 8 + j]; N[i * 3 + j] = interleaved[i * 8 + 3 + j]; } UV[i * 2] = interleaved[i * 8 + 6]; UV[i * 2 + 1] = interleaved[i * 8 + 7]; }
+    const { t, b } = tangents(P, UV, idx), buf = new Float32Array(nv * 12);
+    for (let i = 0; i < nv; i++) {
+      const n = [N[i * 3], N[i * 3 + 1], N[i * 3 + 2]], tt = [t[i * 3], t[i * 3 + 1], t[i * 3 + 2]];
+      const d = n[0] * tt[0] + n[1] * tt[1] + n[2] * tt[2]; let o = [tt[0] - n[0] * d, tt[1] - n[1] * d, tt[2] - n[2] * d];
+      const l = Math.hypot(...o) || 1; o = o.map(x => x / l);
+      const cr = [n[1] * o[2] - n[2] * o[1], n[2] * o[0] - n[0] * o[2], n[0] * o[1] - n[1] * o[0]];
+      const w = cr[0] * b[i * 3] + cr[1] * b[i * 3 + 1] + cr[2] * b[i * 3 + 2] < 0 ? -1 : 1;
+      buf.set(interleaved.subarray(i * 8, i * 8 + 8), i * 12); buf.set([o[0], o[1], o[2], w], i * 12 + 8);
+    }
+    const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, buf, gl.STATIC_DRAW);
+    const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW);
+    return { vb, ib, count: idx.length, type: idx instanceof Uint32Array ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT, bytes: idx instanceof Uint32Array ? 4 : 2 };
+  }
+
+  function texture(gl, source, { mips = true, nearest = false, wrap = true } = {}) {
+    const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+    upload(gl, t, source, mips);
+    const W = wrap ? gl.REPEAT : gl.CLAMP_TO_EDGE;
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, W); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, W);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, nearest ? gl.NEAREST : gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, nearest ? gl.NEAREST : mips ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR);
+    return t;
+  }
+  function upload(gl, t, source, mips = true) {
+    gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+    if (mips) gl.generateMipmap(gl.TEXTURE_2D);
+  }
+
+  // per frame: camera, lights (camera-relative), ambient cube
+  function frame(R, mvp, eye, view, rig) {
+    const { gl, U } = R, g = RIGS[rig] || rig;
+    gl.useProgram(R.prog);
+    gl.uniformMatrix4fv(U('uMVP'), false, mvp); gl.uniform3fv(U('uEye'), eye);
+    gl.uniform3fv(U('uAmb[0]'), g.amb.flat());
+    // camera axes from the view matrix (column-major lookAt: rows are right, up, back)
+    const right = [view[0], view[4], view[8]], up = [view[1], view[5], view[9]], back = [view[2], view[6], view[10]];
+    const dir = d => { const v = [0, 1, 2].map(k => right[k] * d[0] + up[k] * d[1] + back[k] * d[2]); const l = Math.hypot(...v); return v.map(x => x / l); };
+    gl.uniform3fv(U('uLDir[0]'), [...dir([g.key[0][0], g.key[0][1], g.key[0][2]]), ...dir(g.fill[0])]);
+    gl.uniform3fv(U('uLCol[0]'), [...g.key[1], ...g.fill[1]]);
+  }
+
+  // one material + its textures, then draw a range of a mesh
+  function draw(R, m, mat, tex, start = 0, count = m.count) {
+    const { gl, U } = R, M = Object.assign({}, DEFAULT, mat);
+    gl.bindBuffer(gl.ARRAY_BUFFER, m.vb); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, m.ib);
+    [['aP', 3, 0], ['aN', 3, 12], ['aUV', 2, 24], ['aT', 4, 32]].forEach(([n, s, o]) => { const l = gl.getAttribLocation(R.prog, n); if (l < 0) return; gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, s, gl.FLOAT, false, 48, o); });
+    [tex.base, tex.bump, tex.self, tex.detail, tex.extra].forEach((t, i) => { gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, t || R.blank); });
+    gl.uniform3fv(U('uColor2'), M.color2); gl.uniform3fv(U('uFresnel'), M.phongfresnelranges); gl.uniform3fv(U('uSelfTint'), M.selfillumtint);
+    gl.uniform1f(U('uHalfLambert'), M.halflambert ? 1 : 0); gl.uniform1f(U('uHasBump'), tex.bump ? 1 : 0); gl.uniform1f(U('uMaskNoBump'), M.maskNoBump);
+    gl.uniform1f(U('uPhong'), M.phong ? 1 : 0); gl.uniform1f(U('uPhongBoost'), M.phongboost); gl.uniform1f(U('uPhongExp'), M.phongexponent);
+    gl.uniform1f(U('uAlbedoTint'), M.phongalbedotint ? 1 : 0); gl.uniform1f(U('uRim'), M.rimlight ? 1 : 0);
+    gl.uniform1f(U('uRimBoost'), M.rimlightboost); gl.uniform1f(U('uRimExp'), M.rimlightexponent);
+    gl.uniform1f(U('uSelfIllum'), M.selfillum && tex.self ? 1 : 0); gl.uniform1f(U('uAlphaMode'), M.alphaMode);
+    gl.uniform1f(U('uDetMode'), tex.detail ? M.detailblendmode : 0); gl.uniform1f(U('uDetFactor'), M.detailblendfactor); gl.uniform4fv(U('uDetRect'), M.detailrect);
+    gl.uniform1f(U('uExtraMode'), tex.extra && M.extraId ? 1 : 0); gl.uniform4fv(U('uExtraCol'), [...(M.extraCol || [0, 0, 0]), M.extraId || 0]); gl.uniform1f(U('uExtraAmt'), M.extraAmt || 0);
+    gl.drawElements(gl.TRIANGLES, count, m.type, start * m.bytes);
+  }
+
+  // ---- VTF reader: the first frame's full-size image as RGBA (DXT1/3/5, RGBA/BGRA/BGRX 8888, RGB/BGR 888, I8, IA88, A8)
+  const FMT = { 0: 'RGBA8888', 1: 'ABGR8888', 2: 'RGB888', 3: 'BGR888', 5: 'I8', 6: 'IA88', 8: 'A8', 12: 'BGRA8888', 13: 'DXT1', 14: 'DXT3', 15: 'DXT5', 16: 'BGRX8888' };
+  const BPP = { RGBA8888: 4, ABGR8888: 4, RGB888: 3, BGR888: 3, I8: 1, IA88: 2, A8: 1, BGRA8888: 4, BGRX8888: 4 };
+  const levelSize = (f, w, h) => f === 'DXT1' ? Math.max(1, (w + 3) >> 2) * Math.max(1, (h + 3) >> 2) * 8 : f === 'DXT3' || f === 'DXT5' ? Math.max(1, (w + 3) >> 2) * Math.max(1, (h + 3) >> 2) * 16 : w * h * BPP[f];
+  function decodeVTF(buf) {
+    const d = new DataView(buf), u8 = new Uint8Array(buf);
+    if (u8[0] !== 86 || u8[1] !== 84 || u8[2] !== 70) throw new Error('not a VTF');
+    const minor = d.getUint32(8, true), hdr = d.getUint32(12, true), w = d.getUint16(16, true), h = d.getUint16(18, true), flags = d.getUint32(20, true);
+    const frames = d.getUint16(24, true), f = FMT[d.getInt32(52, true)], mips = u8[56], lowF = FMT[d.getInt32(57, true)], lw = u8[61], lh = u8[62];
+    if (!f) throw new Error('unsupported VTF format ' + d.getInt32(52, true));
+    const faces = flags & 0x4000 ? 6 : 1, depth = minor >= 2 ? Math.max(1, d.getUint16(63, true)) : 1;
+    let off = hdr + (lowF && lw ? levelSize(lowF, lw, lh) : 0);
+    if (minor >= 3) {   // resource directory: the high-res image's offset
+      const n = d.getUint32(68, true);
+      for (let i = 0; i < n; i++) if (u8[80 + i * 8] === 0x30 && u8[81 + i * 8] === 0 && u8[82 + i * 8] === 0) off = d.getUint32(84 + i * 8, true);
+    }
+    for (let m = mips - 1; m >= 1; m--) off += levelSize(f, Math.max(1, w >> m), Math.max(1, h >> m)) * frames * faces * depth;
+    const out = new Uint8ClampedArray(w * h * 4), src = u8.subarray(off);
+    if (f.startsWith('DXT')) decodeDXT(f, src, w, h, out);
+    else for (let i = 0; i < w * h; i++) {
+      const s = i * BPP[f], o = i * 4, a = src;
+      switch (f) {
+        case 'RGBA8888': out.set([a[s], a[s + 1], a[s + 2], a[s + 3]], o); break;
+        case 'ABGR8888': out.set([a[s + 3], a[s + 2], a[s + 1], a[s]], o); break;
+        case 'RGB888': out.set([a[s], a[s + 1], a[s + 2], 255], o); break;
+        case 'BGR888': out.set([a[s + 2], a[s + 1], a[s], 255], o); break;
+        case 'BGRA8888': out.set([a[s + 2], a[s + 1], a[s], a[s + 3]], o); break;
+        case 'BGRX8888': out.set([a[s + 2], a[s + 1], a[s], 255], o); break;
+        case 'I8': out.set([a[s], a[s], a[s], 255], o); break;
+        case 'IA88': out.set([a[s], a[s], a[s], a[s + 1]], o); break;
+        case 'A8': out.set([255, 255, 255, a[s]], o); break;
+      }
+    }
+    return new ImageData(out, w, h);
+  }
+  function c565(v) { const r = (v >> 11) & 31, g = (v >> 5) & 63, b = v & 31; return [(r << 3) | (r >> 2), (g << 2) | (g >> 4), (b << 3) | (b >> 2)]; }
+  function decodeDXT(f, src, w, h, out) {
+    const bw = Math.max(1, (w + 3) >> 2), bh = Math.max(1, (h + 3) >> 2), bs = f === 'DXT1' ? 8 : 16;
+    for (let by = 0; by < bh; by++) for (let bx = 0; bx < bw; bx++) {
+      const o = (by * bw + bx) * bs, co = f === 'DXT1' ? o : o + 8;
+      const v0 = src[co] | (src[co + 1] << 8), v1 = src[co + 2] | (src[co + 3] << 8), p0 = c565(v0), p1 = c565(v1);
+      const pal = f === 'DXT1' && v0 <= v1 ? [p0, p1, p0.map((x, k) => (x + p1[k]) >> 1), [0, 0, 0]] : [p0, p1, p0.map((x, k) => (2 * x + p1[k]) / 3), p0.map((x, k) => (x + 2 * p1[k]) / 3)];
+      const bits = src[co + 4] | (src[co + 5] << 8) | (src[co + 6] << 16) | (src[co + 7] << 24);
+      let alpha = null;
+      if (f === 'DXT5') {
+        const a0 = src[o], a1 = src[o + 1], ap = [a0, a1];
+        if (a0 > a1) for (let k = 1; k < 7; k++) ap.push(((7 - k) * a0 + k * a1) / 7); else { for (let k = 1; k < 5; k++) ap.push(((5 - k) * a0 + k * a1) / 5); ap.push(0, 255); }
+        alpha = []; let ab = 0n; for (let k = 0; k < 6; k++) ab |= BigInt(src[o + 2 + k]) << BigInt(8 * k);
+        for (let k = 0; k < 16; k++) alpha.push(ap[Number((ab >> BigInt(3 * k)) & 7n)]);
+      } else if (f === 'DXT3') { alpha = []; for (let k = 0; k < 16; k++) alpha.push(((src[o + (k >> 1)] >> ((k & 1) * 4)) & 15) * 17); }
+      for (let k = 0; k < 16; k++) {
+        const x = bx * 4 + (k & 3), y = by * 4 + (k >> 2); if (x >= w || y >= h) continue;
+        const ci = (bits >>> (2 * k)) & 3, c = pal[ci], i = (y * w + x) * 4;
+        out[i] = c[0]; out[i + 1] = c[1]; out[i + 2] = c[2];
+        out[i + 3] = alpha ? alpha[k] : (f === 'DXT1' && v0 <= v1 && ci === 3 ? 0 : 255);
+      }
+    }
+  }
+  const loadVTF = url => fetch(url).then(r => { if (!r.ok) throw new Error('could not load ' + url); return r.arrayBuffer(); }).then(decodeVTF);
+
+  return { program, mesh, texture, upload, frame, draw, decodeVTF, loadVTF, RIGS, DEFAULT };
+})();
+
 const GLS = {};
 const v3 = { sub: (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], cross: (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]],
   norm: a => { const l = Math.hypot(...a) || 1; return a.map(v => v / l); }, dot: (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2] };
@@ -1223,32 +1440,16 @@ function mul(a, b) { const o = new Array(16); for (let c = 0; c < 4; c++) for (l
 async function initGL() {
   const cv = document.getElementById('view'), gl = cv.getContext('webgl', { antialias: true });
   if (!gl) { document.getElementById('badge').textContent = 'WebGL is not available in this browser'; return; }
-  GLS.gl = gl;
-  const compile = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
-  const prog = gl.createProgram(); gl.attachShader(prog, compile(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FS));
-  gl.linkProgram(prog); gl.useProgram(prog);
-  const u = {}; GLS.u = n => u[n] || (u[n] = gl.getUniformLocation(prog, n));
+  GLS.gl = gl; GLS.R = SRC.program(gl);
   const bytes = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
-  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ARRAY_BUFFER, bytes(MESH.verts), gl.STATIC_DRAW);
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, bytes(MESH.idx), gl.STATIC_DRAW);
-  [['aP', 3, 0], ['aN', 3, 12], ['aUV', 2, 24]].forEach(([n, s, o]) => { const l = gl.getAttribLocation(prog, n); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, s, gl.FLOAT, false, 32, o); });
-  const texture = (unit, source, mips) => {
-    const t = gl.createTexture(); gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    if (mips) { gl.generateMipmap(gl.TEXTURE_2D); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); }
-    else gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    return t;
-  };
+  GLS.mesh = SRC.mesh(gl, new Float32Array(bytes(MESH.verts).buffer), new Uint16Array(bytes(MESH.idx).buffer));
   GLS.baseFor = regOf(P).basetexture + '|' + P.blackVisor;
   const [base, rim] = await Promise.all([loadImg(REG.textures[regOf(P).basetexture]), loadImg(MESH.rim)]);
-  GLS.baseTex = texture(0, P.blackVisor ? blackenPaint(base) : base, true);
-  texture(1, rim, true);
+  GLS.baseTex = SRC.texture(gl, P.blackVisor ? blackenPaint(base) : base, { wrap: false });
+  GLS.rimTex = SRC.texture(gl, rim, { wrap: false });
   GLS.detImg = new ImageData(W, H); for (let i = 3; i < GLS.detImg.data.length; i += 4) GLS.detImg.data[i] = 255;
-  GLS.det = texture(2, GLS.detImg, false);
-  gl.uniform1i(GLS.u('uBase'), 0); gl.uniform1i(GLS.u('uRim'), 1); gl.uniform1i(GLS.u('uDet'), 2);
-  gl.uniform4f(GLS.u('uReg'), HELMET.rect[0], HELMET.rect[1], HELMET.rect[2] - HELMET.rect[0], HELMET.rect[3] - HELMET.rect[1]);   // base-UV rectangle the visor texture covers
+  GLS.det = SRC.texture(gl, GLS.detImg, { mips: false, wrap: false });
+  loadHelmetBump();   // the helmet's normal map arrives a moment later
   gl.enable(gl.DEPTH_TEST);
   const D = G.D[512], ml = []; for (let i = 0; i < D.mask.length; i++) if (D.mask[i] > 0) ml.push(i);
   GLS.ml = Int32Array.from(ml);
@@ -1267,6 +1468,29 @@ async function initGL() {
   await setHelmetTexture();
 }
 
+// the helmet's normal map (hosted as VTF; its alpha is the phong mask). The hosted copy is the matte-visor one, so for
+// the glossy finish the visor area's mask is put back to full
+async function loadHelmetBump() {
+  const gl = GLS.gl; if (!HELMET.nmUrl) return;
+  try { GLS.bumpImg = await SRC.loadVTF(HELMET.nmUrl); } catch (e) { return; }
+  GLS.bumpFinish = null; setBumpFinish();
+}
+function setBumpFinish() {
+  const gl = GLS.gl, glossy = P.finish !== 'matte' || P.metalAmt > 0; if (!GLS.bumpImg || GLS.bumpFinish === glossy) return;
+  GLS.bumpFinish = glossy;
+  let img = GLS.bumpImg;
+  if (glossy) {
+    const n = img.width, d = new Uint8ClampedArray(img.data), M = G.D[1024], [u0, v0, u1, v1] = HELMET.rect;
+    for (let py = Math.floor(v0 * n); py < Math.min(n, Math.ceil(v1 * n)); py++) for (let px = Math.floor(u0 * n); px < Math.min(n, Math.ceil(u1 * n)); px++) {
+      const mx = Math.min(M.W - 1, Math.floor(((px + 0.5) / n - u0) / (u1 - u0) * M.W)), my = Math.min(M.H - 1, Math.floor(((py + 0.5) / img.height - v0) / (v1 - v0) * M.H));
+      if (mx < 0 || my < 0) continue;
+      const k = (py * n + px) * 4; d[k + 3] = Math.max(d[k + 3], Math.min(1, M.mask[my * M.W + mx] * 1.6) * 255);
+    }
+    img = new ImageData(d, n, img.height);
+  }
+  if (!GLS.bump) GLS.bump = SRC.texture(gl, img, { wrap: false }); else SRC.upload(gl, GLS.bump, img);
+}
+
 // swap the 3D helmet's paint to the selected regiment (full 1024x1024 paint from the repo)
 async function setHelmetTexture() {
   const gl = GLS.gl; if (!gl) return;
@@ -1276,8 +1500,7 @@ async function setHelmetTexture() {
   GLS.baseFor = key;
   let im; try { im = await loadImg(src); } catch (err) { if (own) { flash("Your PAC's helmet paint could not be loaded here (its host blocks it), so the stock paint is shown."); GLS.baseFor = null; im = await loadImg(REG.textures[bt]); } else throw err; }
   if (GLS.baseFor !== key && !own) return;   // another regiment was picked while this one loaded
-  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, GLS.baseTex);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, P.blackVisor ? blackenPaint(im) : im); gl.generateMipmap(gl.TEXTURE_2D);
+  SRC.upload(gl, GLS.baseTex, P.blackVisor ? blackenPaint(im) : im);
 }
 
 // the helmet paint with the visor glass painted black (the visor mask, mapped from detail space back onto the paint)
@@ -1316,21 +1539,22 @@ function drawGL(t, factor, rimTint, key) {
   if (col && col !== GLS.shown) {
     const o = GLS.detImg.data, ml = GLS.ml;
     for (let j = 0; j < ml.length; j++) { const i = ml[j] * 4; o[i] = col[j * 3]; o[i + 1] = col[j * 3 + 1]; o[i + 2] = col[j * 3 + 2]; }
-    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, GLS.det);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, GLS.detImg);
+    SRC.upload(gl, GLS.det, GLS.detImg, false);
     GLS.shown = col;
   }
   const c = GLS.cam, cp = Math.cos(c.pitch);
   const eye = [c.dist * cp * Math.sin(c.yaw), -c.dist * cp * Math.cos(c.yaw), c.dist * Math.sin(c.pitch)];   // helmet faces -Y, up is +Z
-  const mvp = mul(perspective(0.6, w / h, 0.5, 400), lookAt(eye, [0, 0, 0], [0, 0, 1]));
-  const fwd = v3.norm(eye), right = v3.norm(v3.cross([0, 0, 1], fwd));
-  const light = v3.norm([fwd[0] + right[0] * 0.5, fwd[1] + right[1] * 0.5, fwd[2] + 0.7]);   // key light follows the camera
-  gl.uniformMatrix4fv(GLS.u('uMVP'), false, mvp);
-  gl.uniform3fv(GLS.u('uLight'), light); gl.uniform3fv(GLS.u('uRimTint'), rimTint);
-  gl.uniform1f(GLS.u('uAmb'), S.dark ? 0.03 : 0.58); gl.uniform1f(GLS.u('uDiff'), S.dark ? 0.09 : 1.0);
-  gl.uniform1f(GLS.u('uFactor'), factor);
+  const view = lookAt(eye, [0, 0, 0], [0, 0, 1]), mvp = mul(perspective(0.6, w / h, 0.5, 400), view);
   gl.clearColor(0.045, 0.055, 0.075, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-  gl.drawElements(gl.TRIANGLES, MESH.ni, gl.UNSIGNED_SHORT, 0);
+  setBumpFinish();
+  SRC.frame(GLS.R, mvp, eye, view, S.dark ? 'night' : 'day');
+  // the helmet's own material (VertexLitGeneric settings from its .vmt), as the outfit sets it up
+  const vmt = regOf(P).vmt || {}, [u0, v0, u1, v1] = HELMET.rect;
+  SRC.draw(GLS.R, GLS.mesh, {
+    color2: vmt.color2 || [0.9, 0.9, 0.9], phong: true, phongboost: vmt.phongboost ?? 1.7, phongexponent: vmt.phongexponent ?? 15,
+    phongfresnelranges: vmt.phongfresnelranges || [0.5, 0.5, 0], phongalbedotint: true,
+    selfillum: true, selfillumtint: rimTint, detailblendmode: 5, detailblendfactor: factor, detailrect: [u0, v0, u1 - u0, v1 - v0],
+  }, { base: GLS.baseTex, bump: GLS.bump, self: GLS.rimTex, detail: GLS.det });
 }
 
 // ---------------------------------------------------------------- GIF preview

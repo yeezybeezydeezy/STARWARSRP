@@ -103,11 +103,11 @@
 </div>
 <script>
 const JEDI = '../jedi/';
-// clone, fleet and general models live in their own repo (about 1.5 GB of the game's textures), pinned to the commit
-// this page was built with: jsDelivr's CDN first, GitHub's raw files if that fails; ../assets/ when testing locally
+// clone, fleet and general models live in their own repo (about 1.5 GB of the game's textures), served by GitHub's raw
+// files and pinned to the commit this page was built with (jsDelivr only takes repos up to 50 MB); ../assets/ locally
 const ASSETS_REF = 'e926a930ab4083fab43a806886336ae4e2c5d134';
 const ASSET_BASES = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? ['../assets/'] :
-  ['https://cdn.jsdelivr.net/gh/yeezybeezydeezy/STARWARSRP-assets@' + ASSETS_REF + '/', 'https://raw.githubusercontent.com/yeezybeezydeezy/STARWARSRP-assets/' + ASSETS_REF + '/'];
+  ['https://raw.githubusercontent.com/yeezybeezydeezy/STARWARSRP-assets/' + ASSETS_REF + '/'];
 let ASSETS = ASSET_BASES[0];
 const UPLOAD_URL = 'https://visor-upload.yeezybeezydeezy.workers.dev/upload';
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));

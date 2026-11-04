@@ -608,10 +608,10 @@ const lumOf = (d, i) => d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11;
 // keep their colour where the phong mask in their alpha is 0. Shared between models: { img (a canvas), gl }
 const TEX = {};
 function texOf(id) {
-  if (!TEX[id]) TEX[id] = SRC.loadVTF(BASE + 'vtf/' + id + '.vtf').then(data => {
+  if (!TEX[id]) TEX[id] = SRC.loadVTF(BASE + 'vtf/' + id + '.vtf').catch(() => SRC.loadVTF(BASE + 'vtf/' + id + '.vtf')).then(data => {
     const c = document.createElement('canvas'); c.width = data.width; c.height = data.height; c.getContext('2d').putImageData(data, 0, 0);
     return { img: c, gl: SRC.texture(G.gl, data) };
-  });
+  }).catch(e => { delete TEX[id]; throw e; });   // retried once, never kept when it fails
   return TEX[id];
 }
 async function fetchBin(url) {

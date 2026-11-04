@@ -103,6 +103,12 @@
 </div>
 <script>
 const JEDI = '../jedi/';
+// clone, fleet and general models live in their own repo (about 1.5 GB of the game's textures), pinned to the commit
+// this page was built with: jsDelivr's CDN first, GitHub's raw files if that fails; ../assets/ when testing locally
+const ASSETS_REF = 'e926a930ab4083fab43a806886336ae4e2c5d134';
+const ASSET_BASES = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? ['../assets/'] :
+  ['https://cdn.jsdelivr.net/gh/yeezybeezydeezy/STARWARSRP-assets@' + ASSETS_REF + '/', 'https://raw.githubusercontent.com/yeezybeezydeezy/STARWARSRP-assets/' + ASSETS_REF + '/'];
+let ASSETS = ASSET_BASES[0];
 const UPLOAD_URL = 'https://visor-upload.yeezybeezydeezy.workers.dev/upload';
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const hex2rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
@@ -411,7 +417,9 @@ const canvas = (w, h) => { const c = document.createElement('canvas'); c.width =
 const ctx2 = c => c.getContext('2d', { willReadFrequently: true });
 const pow2 = v => clamp(2 ** Math.round(Math.log2(Math.max(4, v))), 64, 2048);
 const vtfCache = {};   // the game's own textures, decoded exactly (shared between models)
-const vtf = id => vtfCache[id] || (vtfCache[id] = SRC.loadVTF(JEDI + 'vtf/' + id + '.vtf'));
+// a failed load is retried once and never kept, so a network hiccup doesn't break that texture until a reload
+const vtf = (root, id) => vtfCache[root + id] || (vtfCache[root + id] = SRC.loadVTF(root + 'vtf/' + id + '.vtf')
+  .catch(() => SRC.loadVTF(root + 'vtf/' + id + '.vtf')).catch(e => { delete vtfCache[root + id]; throw e; }));
 const toCanvas = data => { const c = canvas(data.width, data.height); ctx2(c).putImageData(data, 0, 0); return c; };
 const img = src => new Promise((ok, bad) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => ok(i); i.onerror = () => bad(new Error('could not load ' + src)); i.src = src; });
 
@@ -819,22 +827,42 @@ function vmtLook(v = {}) {
     rimlightexponent: v.rimlightexponent ?? 4, alphaMode: v.translucent ? 2 : v.alphatest ? 1 : 0 };
 }
 function confirmLeave() { return !MODEL || !MODEL.mats.some(edited) || confirm('Your painting on this model is not exported yet. Switch anyway?'); }
-async function loadJedi(name) {
+// a suite model: the Jedi ones are one mesh file, the clone/fleet ones are shared parts (one per bodygroup choice)
+async function loadSuite(src, name) {
   $('loading').hidden = false;
-  const [meta, ab] = await Promise.all([fetch(JEDI + 'm/' + name + '.json').then(r => r.json()), fetchBin(JEDI + 'm/' + name + '.bin.gz')]);
-  for (const d of meta.draws) { const b = meta.bodyparts.findIndex(x => x.name === d.bp); d.bp = b; d.choice = meta.bodyparts[b].choices.indexOf(d.choice.replace(/\.smd$/, '')); }
-  const mats = await Promise.all(meta.materials.map(async m => {
-    const v = m.vtf || {}, [base, bump, exp] = await Promise.all([v.base && vtf(v.base), v.bump && vtf(v.bump), v.exp && vtf(v.exp)]);
+  const root = src === 'jedi' ? JEDI : ASSETS;
+  const meta = await fetch(root + 'm/' + name + '.json').then(r => { if (!r.ok) throw new Error('could not load ' + name); return r.json(); });
+  let verts, idx, draws;
+  if (meta.chunks) {   // join the parts into one mesh
+    const bufs = await Promise.all(meta.chunks.map(c => fetchBin(root + 'g/' + c.g + '.bin.gz')));
+    const nv = meta.chunks.reduce((s, c) => s + c.nv, 0), ni = meta.chunks.reduce((s, c) => s + c.ni, 0);
+    verts = new Float32Array(nv * 8); idx = new Uint32Array(ni); draws = [];
+    let vo = 0, io = 0;
+    meta.chunks.forEach((c, i) => {
+      verts.set(new Float32Array(bufs[i], 0, c.nv * 8), vo * 8);
+      const ci = new Uint32Array(bufs[i], c.nv * 32, c.ni); for (let k = 0; k < c.ni; k++) idx[io + k] = ci[k] + vo;
+      const bp = meta.bodyparts.findIndex(x => x.name === c.bp);
+      for (const d of c.draws) draws.push({ bp, choice: meta.bodyparts[bp].choices.indexOf(c.choice), mat: d.mat, start: io + d.start, count: d.count });
+      vo += c.nv; io += c.ni;
+    });
+  } else {
+    const ab = await fetchBin(root + 'm/' + name + '.bin.gz');
+    verts = new Float32Array(ab, 0, meta.nverts * 8); idx = new Uint32Array(ab, meta.nverts * 32, meta.nidx); draws = meta.draws;
+    for (const d of draws) { const b = meta.bodyparts.findIndex(x => x.name === d.bp); d.bp = b; d.choice = meta.bodyparts[b].choices.indexOf(d.choice.replace(/\.smd$/, '')); }
+  }
+  const used = new Set(draws.map(d => d.mat));
+  const mats = await Promise.all(meta.materials.map(async (m, slot) => {
+    const v = used.has(slot) ? m.vtf || {} : {};   // skin-only materials no part uses: not loaded
+    const [base, bump, exp] = await Promise.all([v.base && vtf(root, v.base), v.bump && vtf(root, v.bump), v.exp && vtf(root, v.exp)]);
     const o = makeMat(m.name, base ? toCanvas(base) : null, { meta: m, look: vmtLook(m.vmt) });
     if (bump) o.bump = SRC.texture(G.gl, bump);
     if (exp) o.exp = SRC.texture(G.gl, exp);
-    if (m.pieces) { const pm = await img(JEDI + 'm/' + m.pieces); const c = canvas(o.w, o.h), x = ctx2(c); x.imageSmoothingEnabled = false; x.drawImage(pm, 0, 0, o.w, o.h); o.pieceMap = x.getImageData(0, 0, o.w, o.h); }
+    if (m.pieces && used.has(slot)) { const pm = await img(root + 'm/' + m.pieces); const c = canvas(o.w, o.h), x = ctx2(c); x.imageSmoothingEnabled = false; x.drawImage(pm, 0, 0, o.w, o.h); o.pieceMap = x.getImageData(0, 0, o.w, o.h); }
     return o;
   }));
-  const label = (MODELS.find(x => x.name === name) || {}).label || name;
+  const entry = MODELS.find(x => x.src === src && x.name === name) || {};
   const bg = {}; const hb = meta.bodyparts.findIndex(b => b.name === 'head'); if (name === 'jedi_initiate_alien' && hb >= 0) bg[hb] = 8;
-  setModel({ name, label: label + (meta.gender && meta.gender !== 'Character' ? ' ' + meta.gender.toLowerCase() : ''), meta, mats, draws: meta.draws, bg,
-    mesh: SRC.mesh(G.gl, new Float32Array(ab, 0, meta.nverts * 8), new Uint32Array(ab, meta.nverts * 32, meta.nidx)), height: meta.height, center: meta.center });
+  setModel({ name, src, label: entry.text || name, meta, mats, draws, bg, mesh: SRC.mesh(G.gl, verts, idx), height: meta.height, center: meta.center });
 }
 // .obj: positions, UVs, normals, faces (any polygon), usemtl groups -> materials. Y-up turned to Source's Z-up.
 function parseOBJ(text, name) {
@@ -1009,19 +1037,31 @@ function loop() {
     };
     $('addPaint').onclick = () => active && newLayer(active, 'paint');
     $('addFill').onclick = () => active && newLayer(active, 'fill');
-    MODELS = await fetch(JEDI + 'models.json').then(r => r.json());
+    // every model: the Jedi (on this site) and the clones, fleet and generals (asset repo), grouped by family
+    const jedi = await fetch(JEDI + 'models.json').then(r => r.json());
+    let clones = [];
+    for (const base of ASSET_BASES) {
+      try { clones = await fetch(base + 'models.json').then(r => { if (!r.ok) throw 0; return r.json(); }); ASSETS = base; break; } catch (e) {}
+    }
+    MODELS = [...jedi.map(m => ({ src: 'jedi', name: m.name, family: m.gender === 'Character' ? 'Jedi characters' : 'Jedi ' + m.gender.toLowerCase(),
+        text: m.gender === 'Character' ? m.label : `${m.label} (${m.gender.toLowerCase()})` })),
+      ...clones.map(m => ({ src: 'clone', name: m.name, family: m.family, text: m.family === 'Generals' || m.family === 'Fleet' ? m.label : `${m.family} ${m.label}` }))];
     const pick = $('modelPick'); pick.add(new Option('(your imported model)', ''));
-    const og = (label, list) => { const g = document.createElement('optgroup'); g.label = label; list.forEach(m => g.appendChild(new Option(m.gender === 'Character' ? m.label : `${m.label} (${m.gender.toLowerCase()})`, m.name))); pick.appendChild(g); };
-    og('Jedi classes', MODELS.filter(m => m.gender !== 'Character')); og('Jedi characters', MODELS.filter(m => m.gender === 'Character'));
+    for (const f of [...new Set(MODELS.map(m => m.family))]) {
+      const g = document.createElement('optgroup'); g.label = f;
+      MODELS.filter(m => m.family === f).forEach(m => g.appendChild(new Option(m.text, m.src + ':' + m.name))); pick.appendChild(g);
+    }
+    if (!clones.length) flash('The clone and fleet models could not be reached right now; the Jedi ones work.');
     pick.options[0].disabled = true;
     pick.onchange = async () => {
       if (!pick.value) return;
-      if (!confirmLeave()) { pick.value = MODEL.name; return; }
-      try { await loadJedi(pick.value); flash(''); } catch (err) { flash('Could not load that model: ' + err.message); }
+      if (!confirmLeave()) { pick.value = MODEL.src + ':' + MODEL.name; return; }
+      const [src, name] = pick.value.split(':');
+      try { await loadSuite(src, name); flash(''); } catch (err) { $('loading').hidden = true; flash('Could not load that model: ' + err.message); }
     };
-    pick.value = 'jedi_initiate_alien';
+    pick.value = 'jedi:jedi_initiate_alien';
     requestAnimationFrame(loop);
-    await loadJedi('jedi_initiate_alien');
+    await loadSuite('jedi', 'jedi_initiate_alien');
     flash('Pick a material and paint on the model. "Recolour a piece" makes a fill layer for one clothing piece.');
   } catch (err) { flash('Could not start the painter: ' + err.message); }
 })();

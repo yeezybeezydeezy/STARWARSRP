@@ -200,6 +200,11 @@
   "gender": "Character"
  },
  {
+  "name": "kit_fisto",
+  "label": "Kit Fisto",
+  "gender": "Character"
+ },
+ {
   "name": "mace_windu",
   "label": "Mace Windu",
   "gender": "Character"
@@ -212,6 +217,11 @@
  {
   "name": "plo_koon",
   "label": "Plo Koon",
+  "gender": "Character"
+ },
+ {
+  "name": "shaak_ti",
+  "label": "Shaak Ti",
   "gender": "Character"
  },
  {
